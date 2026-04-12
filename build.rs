@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use cssparser::{Parser, ParserInput, ToCss};
 use html5ever::{parse_document, tendril::TendrilSink};
 use markup5ever_rcdom::{Handle, NodeData, RcDom};
+use toml::Value;
 
 #[derive(Debug, Clone)]
 struct CssDeclBuild {
@@ -103,26 +104,25 @@ fn generate_component_templates(manifest_path: &Path) {
     }
 
     let common_css_path = components_dir.join("common.css");
+    let index_toml_path = components_dir.join("index.toml");
     println!("cargo:rerun-if-changed={}", common_css_path.display());
+    println!("cargo:rerun-if-changed={}", index_toml_path.display());
     let common_css = fs::read_to_string(&common_css_path).unwrap_or_default();
     let common_decls = parse_css_declarations(&common_css);
+    let component_names = parse_component_index(&index_toml_path);
 
     let mut components: Vec<ComponentBuild> = Vec::new();
-    let entries = fs::read_dir(&components_dir).expect("failed to read components directory");
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let name = path
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
-        let htmx_path = path.join("index.htmx");
+    for name in component_names {
+        let path = components_dir.join(&name);
+        let htmx_path = path.join("index.html");
         let css_path = path.join("style.css");
         println!("cargo:rerun-if-changed={}", htmx_path.display());
         println!("cargo:rerun-if-changed={}", css_path.display());
-        if !htmx_path.is_file() {
+        if !path.is_dir() || !htmx_path.is_file() {
+            println!(
+                "cargo:warning=component '{}' is listed in index.toml but missing index.html",
+                name
+            );
             continue;
         }
         let htmx = fs::read_to_string(&htmx_path).unwrap_or_default();
@@ -143,6 +143,31 @@ fn generate_component_templates(manifest_path: &Path) {
     components.sort_by(|a, b| a.name.cmp(&b.name));
     let generated = emit_generated(&components);
     fs::write(&out_path, generated).expect("failed to write generated components");
+}
+
+fn parse_component_index(index_toml_path: &Path) -> Vec<String> {
+    let text = match fs::read_to_string(index_toml_path) {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
+    };
+    let value: Value = match text.parse() {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    let arr = match value.get("components").and_then(|v| v.as_array()) {
+        Some(a) => a,
+        None => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for item in arr {
+        if let Some(name) = item.as_str() {
+            let n = name.trim();
+            if !n.is_empty() {
+                out.push(n.to_string());
+            }
+        }
+    }
+    out
 }
 
 fn parse_htmx_meta(input: &str) -> (String, String, Option<String>, Option<String>) {

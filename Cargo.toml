@@ -15,6 +15,7 @@ html5ever = "0.38.0"
 markup5ever_rcdom = "0.38.0"
 cssparser = "0.37"
 selectors = "0.36.1"
+toml = "0.8"
 
 [lib]
 name = "viewkit"
