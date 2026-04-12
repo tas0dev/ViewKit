@@ -1,12 +1,15 @@
 mod catalog;
-mod ipc;
 mod render;
 
 pub use catalog::{component_catalog, UiComponent};
+pub use render::render_component_catalog;
 
-pub fn show_component_catalog() -> Result<u32, &'static str> {
-    let window_id = ipc::create_app_window(360, 220)?;
-    let pixels = render::render_component_catalog(360, 220, &component_catalog());
-    ipc::flush_window_chunked(window_id, 360, 220, &pixels)?;
-    Ok(window_id)
+pub const DEFAULT_CATALOG_WIDTH: u16 = 360;
+pub const DEFAULT_CATALOG_HEIGHT: u16 = 220;
+
+pub fn build_component_catalog_frame() -> (u16, u16, Vec<u32>) {
+    let width = DEFAULT_CATALOG_WIDTH;
+    let height = DEFAULT_CATALOG_HEIGHT;
+    let pixels = render_component_catalog(width as usize, height as usize, &component_catalog());
+    (width, height, pixels)
 }
