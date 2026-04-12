@@ -1,8 +1,8 @@
 :root {
-  --vk-bg: #1b1e28;
-  --vk-panel: #222633;
-  --vk-border: #4c556e;
-  --vk-text: #cbd4ea;
+  --vk-bg: #fafafa;
+  --vk-panel: #fafafa;
+  --vk-border: #c6c6c6;
+  --vk-text: #0c0c0c;
 }
 
 .component {
