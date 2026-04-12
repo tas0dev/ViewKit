@@ -12,6 +12,7 @@ const OP_RES_WINDOW_CREATED: u32 = 2;
 const OP_REQ_FLUSH_CHUNK: u32 = 4;
 const OP_REQ_ATTACH_SHARED: u32 = 5;
 const OP_REQ_PRESENT_SHARED: u32 = 6;
+const OP_RES_SHARED_ATTACHED: u32 = 7;
 const LAYER_APP: u8 = 1;
 const ENODATA: u64 = (-61i64) as u64;
 
@@ -73,7 +74,7 @@ fn create_app_window(
     req[4..6].copy_from_slice(&width.to_le_bytes());
     req[6..8].copy_from_slice(&height.to_le_bytes());
     req[8] = LAYER_APP;
-    if ipc_send(kagami_tid, &req) as i64 <= 0 {
+    if (ipc_send(kagami_tid, &req) as i64) < 0 {
         return Err("failed to send create_window request");
     }
     let mut recv = [0u8; IPC_BUF_SIZE];
@@ -134,7 +135,7 @@ fn flush_window_chunked(
                     off += 4;
                 }
             }
-            if ipc_send(kagami_tid, &msg) as i64 <= 0 {
+            if (ipc_send(kagami_tid, &msg) as i64) < 0 {
                 return Err("failed to send flush chunk");
             }
             x0 += w;
@@ -185,7 +186,7 @@ fn flush_window_shared(
     attach[4..8].copy_from_slice(&window_id.to_le_bytes());
     attach[8..10].copy_from_slice(&width.to_le_bytes());
     attach[10..12].copy_from_slice(&height.to_le_bytes());
-    if ipc_send(kagami_tid, &attach) as i64 <= 0 {
+    if (ipc_send(kagami_tid, &attach) as i64) < 0 {
         return Err("failed to send shared attach");
     }
     let send_pages_ret = syscall4(
@@ -198,14 +199,35 @@ fn flush_window_shared(
     if (send_pages_ret as i64) < 0 {
         return Err("failed to send shared pages");
     }
+    wait_shared_attach_ack(kagami_tid, window_id)?;
 
     let mut present = [0u8; 8];
     present[0..4].copy_from_slice(&OP_REQ_PRESENT_SHARED.to_le_bytes());
     present[4..8].copy_from_slice(&window_id.to_le_bytes());
-    if ipc_send(kagami_tid, &present) as i64 <= 0 {
+    if (ipc_send(kagami_tid, &present) as i64) < 0 {
         return Err("failed to send shared present");
     }
     Ok(())
+}
+
+fn wait_shared_attach_ack(kagami_tid: u64, window_id: u32) -> Result<(), &'static str> {
+    let mut recv = [0u8; IPC_BUF_SIZE];
+    for _ in 0..256 {
+        let (sender, len) = ipc_recv(&mut recv);
+        if sender != kagami_tid || len < 8 {
+            yield_now();
+            continue;
+        }
+        let op = u32::from_le_bytes([recv[0], recv[1], recv[2], recv[3]]);
+        if op != OP_RES_SHARED_ATTACHED {
+            continue;
+        }
+        let ack_window = u32::from_le_bytes([recv[4], recv[5], recv[6], recv[7]]);
+        if ack_window == window_id {
+            return Ok(());
+        }
+    }
+    Err("shared attach ack timeout")
 }
 
 fn read_scancode() -> Option<u8> {
