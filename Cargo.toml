@@ -11,7 +11,7 @@ autoexamples = false
 [dependencies]
 
 [build-dependencies]
-html5ever = "0.39"
+html5ever = "0.38.0"
 markup5ever_rcdom = "0.38.0"
 cssparser = "0.37"
 selectors = "0.36.1"

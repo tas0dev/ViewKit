@@ -1,0 +1,3 @@
+<button class="vk-button component" hx-post="/actions/button-click">
+  Primary Button
+</button>

@@ -1,0 +1,13 @@
+:root {
+  --vk-bg: #1b1e28;
+  --vk-panel: #222633;
+  --vk-border: #4c556e;
+  --vk-text: #cbd4ea;
+}
+
+.component {
+  background-color: var(--vk-panel);
+  color: var(--vk-text);
+  border: 1px solid var(--vk-border);
+  padding: 8px;
+}

@@ -18,7 +18,7 @@ const SYS_KEYBOARD_READ_TAP: u64 = 534;
 
 fn main() {
     println!("[VIEWKIT] ui_test start");
-    let (width, height, pixels) = viewkit::build_component_catalog_frame();
+    let (width, height, pixels) = viewkit::build_template_catalog_frame();
     let window_id = match create_app_window(width, height) {
         Ok(id) => id,
         Err(e) => {

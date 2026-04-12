@@ -1,4 +1,5 @@
 use crate::catalog::UiComponent;
+use crate::component_dsl::ComponentTemplate;
 
 const BG: u32 = 0xFF1B_1E28;
 const PANEL: u32 = 0xFF22_2633;
@@ -34,6 +35,38 @@ pub fn render_component_catalog(width: usize, height: usize, components: &[UiCom
         }
     }
 
+    px
+}
+
+pub fn render_template_catalog(
+    width: usize,
+    height: usize,
+    templates: &[ComponentTemplate],
+) -> Vec<u32> {
+    let mut px = vec![BG; width * height];
+    fill_rect(&mut px, width, 12, 12, width.saturating_sub(24), height.saturating_sub(24), PANEL);
+    stroke_rect(
+        &mut px,
+        width,
+        12,
+        12,
+        width.saturating_sub(24),
+        height.saturating_sub(24),
+        PANEL_BORDER,
+    );
+
+    draw_text(&mut px, width, 24, 24, "VIEWKIT HTMX/CSS TEMPLATES", TITLE);
+    let mut y = 48i32;
+    for (idx, t) in templates.iter().enumerate() {
+        let row = if idx & 1 == 0 { ROW_A } else { ROW_B };
+        fill_rect(&mut px, width, 24, y, width.saturating_sub(48), 14, row);
+        draw_text(&mut px, width, 30, y + 4, t.name, ROW_TEXT);
+        draw_text(&mut px, width, 150, y + 4, t.root_tag, ROW_TEXT);
+        y += 16;
+        if y + 12 >= height as i32 {
+            break;
+        }
+    }
     px
 }
 

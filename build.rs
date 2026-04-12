@@ -1,5 +1,28 @@
 use std::env;
+use std::fmt::Write as _;
+use std::fs;
 use std::path::{Path, PathBuf};
+
+use cssparser::{Parser, ParserInput, ToCss};
+use html5ever::{parse_document, tendril::TendrilSink};
+use markup5ever_rcdom::{Handle, NodeData, RcDom};
+
+#[derive(Debug, Clone)]
+struct CssDeclBuild {
+    selector: String,
+    property: String,
+    value: String,
+}
+
+#[derive(Debug)]
+struct ComponentBuild {
+    name: String,
+    root_tag: String,
+    class_name: String,
+    hx_get: Option<String>,
+    hx_post: Option<String>,
+    declarations: Vec<CssDeclBuild>,
+}
 
 fn find_project_root(manifest_dir: &Path) -> PathBuf {
     if let Ok(workspace_dir) = env::var("CARGO_WORKSPACE_DIR") {
@@ -55,6 +78,208 @@ fn main() {
         }
     }
     println!("cargo:rustc-link-lib=static=gcc_s");
-    println!("cargo:rerun-if-changed={}", manifest_path.join("linker.ld").display());
+    println!(
+        "cargo:rerun-if-changed={}",
+        manifest_path.join("linker.ld").display()
+    );
     println!("cargo:rerun-if-changed={}", libs_dir.join("libc.a").display());
+
+    generate_component_templates(manifest_path);
+}
+
+fn generate_component_templates(manifest_path: &Path) {
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR not set"));
+    let out_path = out_dir.join("components_generated.rs");
+    let components_dir = manifest_path.join("src").join("components");
+    println!("cargo:rerun-if-changed={}", components_dir.display());
+
+    if !components_dir.is_dir() {
+        fs::write(
+            &out_path,
+            "pub static COMPONENT_TEMPLATES: &[ComponentTemplate] = &[];\n",
+        )
+        .expect("failed to write empty generated components");
+        return;
+    }
+
+    let common_css_path = components_dir.join("common.css");
+    println!("cargo:rerun-if-changed={}", common_css_path.display());
+    let common_css = fs::read_to_string(&common_css_path).unwrap_or_default();
+    let common_decls = parse_css_declarations(&common_css);
+
+    let mut components: Vec<ComponentBuild> = Vec::new();
+    let entries = fs::read_dir(&components_dir).expect("failed to read components directory");
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let htmx_path = path.join("index.htmx");
+        let css_path = path.join("style.css");
+        println!("cargo:rerun-if-changed={}", htmx_path.display());
+        println!("cargo:rerun-if-changed={}", css_path.display());
+        if !htmx_path.is_file() {
+            continue;
+        }
+        let htmx = fs::read_to_string(&htmx_path).unwrap_or_default();
+        let css = fs::read_to_string(&css_path).unwrap_or_default();
+        let (root_tag, class_name, hx_get, hx_post) = parse_htmx_meta(&htmx);
+        let mut declarations = common_decls.clone();
+        declarations.extend(parse_css_declarations(&css));
+        components.push(ComponentBuild {
+            name,
+            root_tag,
+            class_name,
+            hx_get,
+            hx_post,
+            declarations,
+        });
+    }
+
+    components.sort_by(|a, b| a.name.cmp(&b.name));
+    let generated = emit_generated(&components);
+    fs::write(&out_path, generated).expect("failed to write generated components");
+}
+
+fn parse_htmx_meta(input: &str) -> (String, String, Option<String>, Option<String>) {
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(input);
+    find_first_element(&dom.document)
+        .map(|(tag, class_name, hx_get, hx_post)| (tag, class_name, hx_get, hx_post))
+        .unwrap_or_else(|| ("div".to_string(), String::new(), None, None))
+}
+
+fn find_first_element(handle: &Handle) -> Option<(String, String, Option<String>, Option<String>)> {
+    if let NodeData::Element { name, attrs, .. } = &handle.data {
+        let tag = name.local.to_string();
+        if tag == "html" || tag == "head" || tag == "body" {
+            for child in handle.children.borrow().iter() {
+                if let Some(found) = find_first_element(child) {
+                    return Some(found);
+                }
+            }
+            return None;
+        }
+        let attrs = attrs.borrow();
+        let mut class_name = String::new();
+        let mut hx_get = None;
+        let mut hx_post = None;
+        for attr in attrs.iter() {
+            let k = attr.name.local.to_string();
+            let v = attr.value.to_string();
+            if k == "class" {
+                class_name = v
+                    .split_whitespace()
+                    .next()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default();
+            } else if k == "hx-get" {
+                hx_get = Some(v);
+            } else if k == "hx-post" {
+                hx_post = Some(v);
+            }
+        }
+        return Some((tag, class_name, hx_get, hx_post));
+    }
+    for child in handle.children.borrow().iter() {
+        if let Some(found) = find_first_element(child) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+fn parse_css_declarations(css: &str) -> Vec<CssDeclBuild> {
+    let mut out = Vec::new();
+    for block in css.split('}') {
+        let Some((selector_raw, body)) = block.split_once('{') else {
+            continue;
+        };
+        let selector = selector_raw.trim();
+        if selector.is_empty() {
+            continue;
+        }
+        for decl in body.split(';') {
+            let Some((property_raw, value_raw)) = decl.split_once(':') else {
+                continue;
+            };
+            let property = property_raw.trim();
+            if property.is_empty() {
+                continue;
+            }
+            let value_trimmed = value_raw.trim().to_string();
+            if value_trimmed.is_empty() {
+                continue;
+            }
+            {
+                let mut input = ParserInput::new(value_trimmed.as_str());
+                let mut parser = Parser::new(&mut input);
+                while let Ok(token) = parser.next_including_whitespace_and_comments() {
+                    let _ = token.to_css_string();
+                }
+            }
+            out.push(CssDeclBuild {
+                selector: selector.to_string(),
+                property: property.to_string(),
+                value: value_trimmed,
+            });
+        }
+    }
+    out
+}
+
+fn emit_generated(components: &[ComponentBuild]) -> String {
+    let mut src = String::new();
+    src.push_str("// @generated by build.rs\n");
+    if components.is_empty() {
+        src.push_str("pub static COMPONENT_TEMPLATES: &[ComponentTemplate] = &[];\n");
+        return src;
+    }
+
+    for (idx, c) in components.iter().enumerate() {
+        let _ = writeln!(src, "static DECLS_{}: &[CssDecl] = &[", idx);
+        for d in &c.declarations {
+            let _ = writeln!(
+                src,
+                "    CssDecl {{ selector: \"{}\", property: \"{}\", value: \"{}\" }},",
+                escape_rust_str(&d.selector),
+                escape_rust_str(&d.property),
+                escape_rust_str(&d.value)
+            );
+        }
+        src.push_str("];\n");
+    }
+
+    src.push_str("pub static COMPONENT_TEMPLATES: &[ComponentTemplate] = &[\n");
+    for (idx, c) in components.iter().enumerate() {
+        let hx_get = c
+            .hx_get
+            .as_ref()
+            .map(|v| format!("Some(\"{}\")", escape_rust_str(v)))
+            .unwrap_or_else(|| "None".to_string());
+        let hx_post = c
+            .hx_post
+            .as_ref()
+            .map(|v| format!("Some(\"{}\")", escape_rust_str(v)))
+            .unwrap_or_else(|| "None".to_string());
+        let _ = writeln!(
+            src,
+            "    ComponentTemplate {{ name: \"{}\", root_tag: \"{}\", class_name: \"{}\", hx_get: {}, hx_post: {}, declarations: DECLS_{} }},",
+            escape_rust_str(&c.name),
+            escape_rust_str(&c.root_tag),
+            escape_rust_str(&c.class_name),
+            hx_get,
+            hx_post,
+            idx
+        );
+    }
+    src.push_str("];\n");
+    src
+}
+
+fn escape_rust_str(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('\"', "\\\"")
 }

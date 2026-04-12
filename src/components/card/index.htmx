@@ -1,0 +1,4 @@
+<div class="vk-card component" hx-get="/data/card">
+  <div class="vk-card-title">Card Title</div>
+  <div class="vk-card-body">Body text</div>
+</div>
