@@ -1,38 +1,38 @@
 .vk-button {
-  position: relative;
-  width: 85px;
-  height: 35px;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  cursor: pointer;
+    position: relative;
+    width: 85px;
+    height: 35px;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
 }
 
 .vk-button-bg {
-  position: absolute;
-  left: 5px;
-  top: 5px;
-  width: 75px;
-  height: 25px;
-  background: #f9af5b;
-  border-radius: 50px;
-  box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.25);
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 75px;
+    height: 25px;
+    background: #f9af5b;
+    border-radius: 50px;
+    box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.25);
 }
 
 .vk-button-content-area {
-  position: absolute;
-  left: 5px;
-  top: 5px;
-  width: 75px;
-  height: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 75px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .vk-button-label {
-  color: #1d1d1f;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+    color: #1d1d1f;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
 }

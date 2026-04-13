@@ -7,7 +7,9 @@
   "target-c-int-width": 32,
   "os": "linux",
   "env": "musl",
-  "target-family": ["unix"],
+  "target-family": [
+    "unix"
+  ],
   "vendor": "unknown",
   "linker-flavor": "ld.lld",
   "linker": "rust-lld",

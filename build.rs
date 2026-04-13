@@ -99,7 +99,7 @@ fn generate_component_templates(manifest_path: &Path) {
             &out_path,
             "pub static COMPONENT_TEMPLATES: &[ComponentTemplate] = &[];\n",
         )
-        .expect("failed to write empty generated components");
+            .expect("failed to write empty generated components");
         return;
     }
 
