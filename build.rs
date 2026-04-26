@@ -53,6 +53,12 @@ fn main() {
     println!("cargo:rustc-link-lib=static=g");
     println!("cargo:rustc-link-lib=static=m");
     println!("cargo:rustc-link-lib=static=nosys");
+    // Ensure libunwind is linked so symbols like _Unwind_GetIP are resolved
+    println!("cargo:rustc-link-lib=static=unwind");
+    // Also pass libunwind.a directly to the linker to ensure symbols are present
+    println!("cargo:rustc-link-arg={}/libunwind.a", libs_dir.display());
+    // Link libextra.a which provides minimal getcwd implementation used by libstd
+    println!("cargo:rustc-link-arg={}/libextra.a", libs_dir.display());
 
     let libgcc_s = libs_dir.join("libgcc_s.a");
     let libg = libs_dir.join("libg.a");
