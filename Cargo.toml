@@ -13,6 +13,10 @@ html5ever = "0.38.0"
 markup5ever_rcdom = "0.38.0"
 cssparser = "0.37"
 toml = "0.8"
+# Host PoC dependencies for Wayland wl_shm backend
+wayland-client = "0.29"
+memmap2 = "0.5"
+tempfile = "3.6"
 
 [build-dependencies]
 html5ever = "0.38.0"

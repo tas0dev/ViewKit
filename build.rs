@@ -40,6 +40,13 @@ fn find_project_root(manifest_dir: &Path) -> PathBuf {
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let manifest_path = Path::new(&manifest_dir);
+
+    // Host PoC: when MOCHI_HOST_POC is set, skip mochi-specific linker arguments
+    if env::var("MOCHI_HOST_POC").is_ok() {
+        generate_component_templates(manifest_path);
+        return;
+    }
+
     let project_root = find_project_root(manifest_path);
     let libs_dir = project_root.join("ramfs").join("Libraries");
 
