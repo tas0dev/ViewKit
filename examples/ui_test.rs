@@ -59,14 +59,24 @@ fn main() {
     let pool = shm.create_pool(fd, size as i32);
     let buffer = pool.create_buffer(0, width, height, stride as i32, Format::Argb8888);
 
-    // Attach buffer to surface and commit
-    surface.attach(Some(&buffer), 0, 0);
-    surface.commit();
+    let pool = shm.create_pool(fd, size as i32);
+    let buffer = pool.create_buffer(0, width, height, stride as i32, Format::Argb8888);
 
-    // Roundtrip so compositor processes the attach
-    event_queue
-        .sync_roundtrip(&mut (), |_, _, _| {})
-        .expect("roundtrip failed");
+    if let Ok(wl_shell) = globals.instantiate_exact::<wayland_client::protocol::wl_shell::WlShell>(1) {
+        let shell_surface = wl_shell.get_shell_surface(&surface);
+        shell_surface.set_toplevel();
+        surface.attach(Some(&buffer), 0, 0);
+        surface.commit();
+        event_queue
+            .sync_roundtrip(&mut (), |_, _, _| {})
+            .expect("roundtrip failed");
+    } else {
+        surface.attach(Some(&buffer), 0, 0);
+        surface.commit();
+        event_queue
+            .sync_roundtrip(&mut (), |_, _, _| {})
+            .expect("roundtrip failed");
+    }
 
     // Keep dispatching events so the window remains responsive
     loop {
