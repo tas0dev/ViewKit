@@ -1,17 +1,15 @@
 // libkagami.rs
 // Host-side shim for Kagami minimal APIs.
-// 目的: Kagami で使われる "surface/buffer" と入力の最小限の機能を Wayland 上で提供する。
-// 実装は unix (Linux/WSL) 向けの簡易ラッパーで、非 unix ターゲットではエラースタブを提供する。
 
 #[cfg(unix)]
 mod unix_impl {
     use memmap2::MmapMut;
     use std::fs::File;
-    use std::io::Result as IoResult;
     use std::os::unix::io::AsRawFd;
     use tempfile::tempfile;
-    use wayland_client::protocol::{wl_buffer, wl_compositor, wl_shm, wl_shm::Format};
-    use wayland_client::{Display, EventQueue, GlobalManager};
+    use wayland_client::protocol::{wl_buffer, wl_shm, wl_shm::Format};
+    use wayland_client::{Display, EventQueue, GlobalManager, Main};
+    use wayland_client::protocol::wl_shm_pool::WlShmPool;
 
     /// Wayland 接続と基本グローバルを返す。
     /// 直接 EventQueue を返すので呼び出し側は dispatch/sync_roundtrip を行ってイベントを処理できる。
@@ -33,12 +31,12 @@ mod unix_impl {
         shm: &wl_shm::WlShm,
         width: i32,
         height: i32,
-    ) -> Result<(File, MmapMut, wl_shm::WlPool, wl_buffer::WlBuffer), String> {
+    ) -> Result<(File, MmapMut, Main<WlShmPool>, Main<wl_buffer::WlBuffer>), String> {
         let stride = (width * 4) as usize;
         let size = stride.checked_mul(height as usize).ok_or("size overflow")?;
 
         // 匿名テンポラリファイルを作る
-        let mut tmp = tempfile().map_err(|e| format!("tempfile failed: {}", e))?;
+        let tmp = tempfile().map_err(|e| format!("tempfile failed: {}", e))?;
         tmp.set_len(size as u64)
             .map_err(|e| format!("set_len failed: {}", e))?;
 
@@ -61,8 +59,8 @@ mod unix_impl {
         // mmap を保持しておくことで呼び出し側が直接ピクセルデータを書ける
         pub mmap0: MmapMut,
         pub mmap1: MmapMut,
-        pub buffer0: wl_buffer::WlBuffer,
-        pub buffer1: wl_buffer::WlBuffer,
+        pub buffer0: Main<wl_buffer::WlBuffer>,
+        pub buffer1: Main<wl_buffer::WlBuffer>,
     }
 
     impl HostSurface {
@@ -72,25 +70,18 @@ mod unix_impl {
             shm: &wl_shm::WlShm,
             width: i32,
             height: i32,
-        ) -> Result<(Self, wl_compositor::WlSurface), String> {
+        ) -> Result<Self, String> {
             // 一時的に create_shm_buffer を二回呼ぶ
-            let (tmp0, mmap0, _pool0, buffer0) = create_shm_buffer(shm, width, height)?;
-            let (tmp1, mmap1, _pool1, buffer1) = create_shm_buffer(shm, width, height)?;
+            let (_tmp0, _mmap0, _pool0, _buffer0) = create_shm_buffer(shm, width, height)?;
+            let (_tmp1, _mmap1, _pool1, _buffer1) = create_shm_buffer(shm, width, height)?;
 
-            // 注意: tempfile はここで捨てずに所有しておく必要があるが、呼び出し側が mmap を保持している限りファイルの寿命は維持される
-            // 型上は tmp0/tmp1 を破棄してしまうとファイルがクローズされるが mmap は生きる場合がある。確実性のため呼び出し側で tmp を保持したい場合は別 API を作る。
-
-            let stride = (width * 4) as usize;
-
-            // surface は呼び出し側で compositor.create_surface() を呼んで得る設計にするため、ここではダミーの surface を返す
-            // しかし便利のため、wl_compositor::WlSurface が必要なケースが多いので呼び出し側で create_surface してから使うことを想定する。
-            // ここでは Err を返す代わりに使い方をドキュメントで示す。
+            let _stride = (width * 4) as usize;
 
             Err("HostSurface::new is a helper; use create_shm_buffer and compositor.create_surface() in caller".into())
         }
 
         /// mmap を取得して描画するためのユーティリティ
-        pub fn draw_into<'a>(mmap: &'a mut MmapMut) -> &'a mut [u8] {
+        pub fn draw_into(mmap: &mut MmapMut) -> &mut [u8] {
             &mut mmap[..]
         }
     }
@@ -99,11 +90,111 @@ mod unix_impl {
     pub use create_shm_buffer as host_create_shm_buffer;
     pub use connect_wayland as host_connect_wayland;
     pub use HostSurface as host_HostSurface;
+
+    /// 高レベル表示管理: compositor/shm および EventQueue を保持する
+    pub struct HostDisplay {
+        pub display: Display,
+        pub event_queue: EventQueue,
+        pub globals: GlobalManager,
+        pub compositor: Main<wl_compositor::WlCompositor>,
+        pub shm: Main<wl_shm::WlShm>,
+    }
+
+    impl HostDisplay {
+        /// Wayland 接続して必要なグローバル（compositor, shm）まで取得する
+        pub fn new() -> Result<Self, String> {
+            let (display, mut event_queue, globals) = connect_wayland()?;
+            // 主要なグローバルを取得
+            let compositor = globals
+                .instantiate_exact::<wl_compositor::WlCompositor>(4)
+                .map_err(|_| "Compositor not available".to_string())?;
+            let shm = globals
+                .instantiate_exact::<wl_shm::WlShm>(1)
+                .map_err(|_| "wl_shm not available".to_string())?;
+            Ok(HostDisplay { display, event_queue, globals, compositor, shm })
+        }
+
+        /// イベントのディスパッチを行う（呼び出し側でループする）
+        pub fn dispatch(&mut self) -> Result<(), String> {
+            self.event_queue
+                .dispatch(&mut (), |_, _, _| {})
+                .map_err(|e| format!("dispatch failed: {}", e))
+        }
+
+        /// 新しい surface と double-buffer を作る
+        pub fn create_surface(&mut self, width: i32, height: i32) -> Result<HostSurface, String> {
+            let surface = self.compositor.create_surface();
+            // create buffers
+            let (tmp0, mmap0, _pool0, buffer0) = create_shm_buffer(&self.shm, width, height)?;
+            let (tmp1, mmap1, _pool1, buffer1) = create_shm_buffer(&self.shm, width, height)?;
+            Ok(HostSurface {
+                surface,
+                width,
+                height,
+                stride: (width * 4) as usize,
+                mmap0,
+                mmap1,
+                buffer0,
+                buffer1,
+                front: 0,
+            })
+        }
+    }
+
+    /// Surface と double-buffer の小さなラッパ
+    pub struct HostSurface {
+        pub surface: Main<wl_compositor::WlSurface>,
+        pub width: i32,
+        pub height: i32,
+        pub stride: usize,
+        pub mmap0: MmapMut,
+        pub mmap1: MmapMut,
+        pub buffer0: Main<wl_buffer::WlBuffer>,
+        pub buffer1: Main<wl_buffer::WlBuffer>,
+        pub front: usize,
+    }
+
+    impl HostSurface {
+        /// 書き込み可能バッファスライスを取得
+        pub fn back_buffer_mut(&mut self) -> &mut [u8] {
+            if self.front == 0 { &mut self.mmap1[..] } else { &mut self.mmap0[..] }
+        }
+
+        /// 現在のフロントを attach + commit する
+        pub fn commit_front(&mut self) {
+            if self.front == 0 {
+                self.surface.attach(Some(&self.buffer0), 0, 0);
+                self.front = 0;
+            } else {
+                self.surface.attach(Some(&self.buffer1), 0, 0);
+                self.front = 1;
+            }
+            self.surface.commit();
+        }
+
+        /// バッファをスワップして commit（back を front にする）
+        pub fn swap_and_commit(&mut self) {
+            if self.front == 0 {
+                // front 0 -> use buffer1 as new front
+                self.mmap1.flush().ok();
+                self.surface.attach(Some(&self.buffer1), 0, 0);
+                self.front = 1;
+            } else {
+                self.mmap0.flush().ok();
+                self.surface.attach(Some(&self.buffer0), 0, 0);
+                self.front = 0;
+            }
+            self.surface.commit();
+        }
+    }
+
+    // エクスポート
+    pub use HostDisplay as host_HostDisplay;
 }
 
 #[cfg(not(unix))]
 mod stub_impl {
-    // 非 unix（mochi ターゲット等）向けのスタブ実装
+    // mochiOS向けスタブ
     pub fn host_connect_wayland() -> Result<(), String> {
         Err("libkagami host shim is only available on unix hosts".into())
     }
@@ -114,6 +205,6 @@ mod stub_impl {
 
 // 公開インターフェース
 #[cfg(unix)]
-pub use unix_impl::{host_connect_wayland, host_create_shm_buffer, host_HostSurface};
+pub use unix_impl::{host_connect_wayland, host_create_shm_buffer, host_HostSurface, host_HostDisplay};
 #[cfg(not(unix))]
 pub use stub_impl::*;
