@@ -2,34 +2,34 @@ use crate::components::Component;
 use ui_layout::{LayoutNode, Style, Length, LayoutEngine, LayoutBoxes};
 
 pub struct Container {
-    children: Vec<Box<dyn Component>>,
+    // pair each child with its layout Style
+    children: Vec<(Box<dyn Component>, Style)>,
 }
 
 impl Container {
     pub fn new() -> Self { Container { children: Vec::new() } }
-    pub fn with_children(children: Vec<Box<dyn Component>>) -> Self { Container { children } }
-    pub fn add(&mut self, c: Box<dyn Component>) { self.children.push(c); }
+
+    /// children provided with explicit Style per child
+    pub fn with_children(children: Vec<(Box<dyn Component>, Style)>) -> Self { Container { children } }
+
+    /// add child with default style
+    pub fn add(&mut self, c: Box<dyn Component>) { self.children.push((c, Style::default())); }
+
+    /// add child with explicit style
+    pub fn add_with_style(&mut self, c: Box<dyn Component>, s: Style) { self.children.push((c, s)); }
 }
 
 impl Component for Container {
     fn pref_size(&self) -> (Option<i32>, Option<i32>) {
+        // container is auto-sized by default
         (None, None)
     }
 
     fn render_into(&self, buf: &mut [u8], buf_width: usize, buf_height: usize, stride: usize, x: i32, y: i32, w: i32, h: i32) {
+        // Build layout node tree: root with children using provided Styles
         let mut child_nodes = Vec::with_capacity(self.children.len());
-        for ch in &self.children {
-            let mut style = Style::default();
-            let (pw, ph) = ch.pref_size();
-            style.size.width = match pw {
-                Some(v) => Length::Px(v as f32),
-                None => Length::Auto,
-            };
-            style.size.height = match ph {
-                Some(v) => Length::Px(v as f32),
-                None => Length::Auto,
-            };
-            child_nodes.push(LayoutNode::new(style));
+        for (_ch, style) in &self.children {
+            child_nodes.push(LayoutNode::new(style.clone()));
         }
         let mut root = LayoutNode::with_children(Style::default(), child_nodes);
 
@@ -37,7 +37,7 @@ impl Component for Container {
         LayoutEngine::layout(&mut root, w as f32, h as f32);
 
         // dispatch rendering to children based on computed boxes
-        for (i, child) in self.children.iter().enumerate() {
+        for (i, (child, _style)) in self.children.iter().enumerate() {
             if let Some(node) = root.children.get(i) {
                 match &node.layout_boxes {
                     LayoutBoxes::Single(bm) => {

@@ -31,7 +31,10 @@ fn main() {
     let c1 = Canvas::new(Color::new(0xff, 0x00, 0x00, 0xff), width, 100); // fixed 100px height
     let c2 = Canvas::new(Color::new(0x00, 0xff, 0x00, 0xff), width, 0); // fill remaining
     let c3 = Canvas::new(Color::new(0x00, 0x00, 0xff, 0xff), width, 100);
-    let container = Container::with_children(vec![Box::new(c1), Box::new(c2), Box::new(c3)]);
+    let s1 = viewkit::components::make_style_with_padding(Some(width), Some(100), Some((4.0,4.0,4.0,4.0)), None, None);
+    let s2 = viewkit::components::make_style_with_padding(None, None, Some((8.0,8.0,8.0,8.0)), None, None);
+    let s3 = viewkit::components::make_style_with_padding(Some(width), Some(100), Some((4.0,4.0,4.0,4.0)), None, None);
+    let container = Container::with_children(vec![(Box::new(c1), s1), (Box::new(c2), s2), (Box::new(c3), s3)]);
 
     // initial render via container
     {
