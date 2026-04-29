@@ -4,6 +4,7 @@ pub mod libkagami;
 pub mod render;
 pub mod view;
 pub mod components;
+pub mod font;
 
 pub use libkagami::*;
 pub use render::*;

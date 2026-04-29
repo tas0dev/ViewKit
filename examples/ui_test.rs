@@ -40,10 +40,19 @@ fn main() {
     let p3 = c3.view().padding(4.0).frame(Some(width), Some(100)).into_pair();
     let container = Container::with_children(vec![p1, p_card, p2, p3]);
 
+    // prepare text renderer
+    let mut tr = match viewkit::font::TextRenderer::new() {
+        Ok(t) => Some(t),
+        Err(e) => { eprintln!("Text renderer init failed: {}", e); None }
+    };
+
     // initial render via container
     {
         let back = surf.back_buffer_mut();
         container.render_into(back, width as usize, height as usize, stride, 0, 0, width, height);
+        if let Some(ref mut t) = tr {
+            t.draw_text(back, width as usize, height as usize, stride, 20, 40, 18.0, "こんにちは", Color::new(0x00,0x00,0x00,0xff));
+        }
     }
 
     // Try to make surface a toplevel so compositor maps it as a window
@@ -65,6 +74,10 @@ fn main() {
             // render container into back buffer
             let back = surf.back_buffer_mut();
             container.render_into(back, width as usize, height as usize, stride, 0, 0, width, height);
+            // overlay: draw text each frame so it persists
+            if let Some(ref mut t) = tr {
+                t.draw_text(back, width as usize, height as usize, stride, 20, 40, 18.0, "こんにちは", Color::new(0x00,0x00,0x00,0xff));
+            }
             surf.swap_and_commit().expect("swap_and_commit failed");
             // 再度フレームを要求
             frame_requested.store(false, Ordering::SeqCst);

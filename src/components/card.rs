@@ -8,15 +8,14 @@ pub struct Card {
     height: i32,
     bg: Color,
     radius: i32,
-    // absolute positioning (left, top) in pixels relative to parent's origin when enabled
     absolute: bool,
     left: i32,
     top: i32,
 }
 
 impl Card {
-    /// Create a card with default CSS-like values
-    pub fn new(w: i32, h: i32, color: Color) -> Self {
+    /// Create a card
+    pub fn new(w: i32, h:i32, color: Color) -> Self {
         Self {
             width: w,
             height: h,
@@ -64,7 +63,7 @@ impl Card {
                 let dist = (dx*dx + dy*dy).sqrt();
 
                 // coverage: 1.0 inside shape, 0.0 outside. Smooth transition around the boundary (~1px)
-                let mut coverage: f32 = 0.0;
+                let coverage: f32;
                 if dx == 0.0 && dy == 0.0 {
                     coverage = 1.0;
                 } else {

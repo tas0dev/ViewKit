@@ -9,16 +9,14 @@ edition = "2024"
 autoexamples = false
 
 [dependencies]
-cssparser = "0.37"
-toml = "1.1.2"
 wayland-client = { version = "0.31.14", features = ["dlopen"] }
 wayland-protocols = { version = "0.32", features = ["client"] }
 memmap2 = "0.9.10"
 tempfile = "3.6"
 ui_layout = "0.9.8"
+fontdue = "0.9.3"
 
 [build-dependencies]
-toml = "1.1.2"
 
 [lib]
 name = "viewkit"
