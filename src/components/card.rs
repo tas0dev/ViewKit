@@ -62,26 +62,51 @@ impl Card {
                 let dx = if local_x < r { r - local_x } else if local_x > (w as f32 - r) { local_x - (w as f32 - r) } else { 0.0 };
                 let dy = if local_y < r { r - local_y } else if local_y > (h as f32 - r) { local_y - (h as f32 - r) } else { 0.0 };
                 let dist = (dx*dx + dy*dy).sqrt();
+
+                // coverage: 1.0 inside shape, 0.0 outside. Smooth transition around the boundary (~1px)
+                let mut coverage: f32 = 0.0;
                 if dx == 0.0 && dy == 0.0 {
-                    // inside central rect area
-                    let row = yy * stride;
-                    let off = row + xx * 4;
-                    if off + 3 < buf.len() {
-                        buf[off + 0] = color.b;
-                        buf[off + 1] = color.g;
-                        buf[off + 2] = color.r;
-                        buf[off + 3] = color.a;
-                    }
-                } else if dist <= r {
-                    // inside rounded corner region (approx)
-                    let row = yy * stride;
-                    let off = row + xx * 4;
-                    if off + 3 < buf.len() {
-                        buf[off + 0] = color.b;
-                        buf[off + 1] = color.g;
-                        buf[off + 2] = color.r;
-                        buf[off + 3] = color.a;
-                    }
+                    coverage = 1.0;
+                } else {
+                    // distance from circle boundary: negative when inside
+                    let boundary_dist = r - dist;
+                    // smoothstep over approx 1.0 pixel band
+                    let t = (boundary_dist + 0.5).clamp(0.0, 1.0);
+                    coverage = t;
+                }
+
+                if coverage <= 0.0 { continue; }
+
+                let row = yy * stride;
+                let off = row + xx * 4;
+                if off + 3 >= buf.len() { continue; }
+
+                // alpha blending: src over dst
+                let src_a = ((color.a as f32) * coverage).round() as u8;
+                if src_a == 255 {
+                    // opaque write
+                    buf[off + 0] = color.b;
+                    buf[off + 1] = color.g;
+                    buf[off + 2] = color.r;
+                    buf[off + 3] = color.a;
+                } else {
+                    let dst_b = buf[off + 0] as u32;
+                    let dst_g = buf[off + 1] as u32;
+                    let dst_r = buf[off + 2] as u32;
+                    let dst_a = buf[off + 3] as u32;
+
+                    let sa = src_a as u32;
+                    let inv_sa = 255 - sa;
+
+                    let out_b = (sa * (color.b as u32) + inv_sa * dst_b) / 255;
+                    let out_g = (sa * (color.g as u32) + inv_sa * dst_g) / 255;
+                    let out_r = (sa * (color.r as u32) + inv_sa * dst_r) / 255;
+                    let out_a = (sa + (inv_sa * dst_a) / 255).min(255);
+
+                    buf[off + 0] = out_b as u8;
+                    buf[off + 1] = out_g as u8;
+                    buf[off + 2] = out_r as u8;
+                    buf[off + 3] = out_a as u8;
                 }
             }
         }
