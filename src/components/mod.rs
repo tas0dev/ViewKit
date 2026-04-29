@@ -11,9 +11,15 @@ pub trait Component {
 
 pub mod canvas;
 pub mod container;
+pub mod style;
+pub mod view;
 
 pub use canvas::Canvas;
 pub use container::Container;
+pub use style::StyleBuilder;
+pub use view::View;
+pub mod ext;
+pub use ext::ComponentExt;
 
 pub fn make_style_with_padding(
     width: Option<i32>,
