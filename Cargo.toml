@@ -9,21 +9,16 @@ edition = "2024"
 autoexamples = false
 
 [dependencies]
-html5ever = "0.38.0"
-markup5ever_rcdom = "0.38.0"
 cssparser = "0.37"
-toml = "0.8"
-# Host PoC dependencies for Wayland wl_shm backend
-wayland-client = { version = "0.29", features = ["dlopen"] }
-memmap2 = "0.5"
+toml = "1.1.2"
+wayland-client = { version = "0.31.14", features = ["dlopen"] }
+wayland-protocols = { version = "0.32", features = ["client"] }
+memmap2 = "0.9.10"
 tempfile = "3.6"
+ui_layout = "0.9.8"
 
 [build-dependencies]
-html5ever = "0.38.0"
-markup5ever_rcdom = "0.38.0"
-cssparser = "0.37"
-selectors = "0.36.1"
-toml = "0.8"
+toml = "1.1.2"
 
 [lib]
 name = "viewkit"

@@ -1,144 +1,63 @@
-use memmap2::MmapMut;
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::{Duration, Instant};
-use viewkit::{host_connect_wayland, host_create_shm_buffer};
-use wayland_client::protocol::wl_compositor::WlCompositor;
-use wayland_client::protocol::wl_shm::WlShm;
-use wayland_client::protocol::{wl_callback, wl_keyboard, wl_pointer, wl_seat};
-
-fn fill_pattern(mmap: &mut MmapMut, width: i32, height: i32, stride: usize, phase: u8) {
-    for y in 0..(height as usize) {
-        for x in 0..(width as usize) {
-            let offset = y * stride + x * 4;
-            let r = ((x + phase as usize) % 256) as u8;
-            let g = ((y + phase as usize) % 256) as u8;
-            let b = (((x + y + phase as usize) / 2) % 256) as u8;
-            mmap[offset + 0] = b;
-            mmap[offset + 1] = g;
-            mmap[offset + 2] = r;
-            mmap[offset + 3] = 0xff;
-        }
-    }
-}
+use viewkit::{host_HostDisplay, register_pointer_and_keyboard};
 
 fn main() {
     // Wayland 接続を shim 経由で作る
-    let (_display, mut event_queue, globals) = host_connect_wayland().expect("host_connect_wayland failed");
+    let mut host = host_HostDisplay::new().expect("host_HostDisplay::new failed");
 
-    // Compositor と shm を取得
-    let compositor = globals
-        .instantiate_exact::<WlCompositor>(4)
-        .expect("Compositor not available");
-    let shm = globals
-        .instantiate_exact::<WlShm>(1)
-        .expect("wl_shm not available");
-
-    let surface = compositor.create_surface();
-
+    // HostDisplay 経由で surface を作成
     let width: i32 = 400;
     let height: i32 = 240;
     let stride = (width * 4) as usize;
+    let mut surf = host.create_surface(width, height).expect("create_surface failed");
 
-    // shim の create_shm_buffer を使って二重バッファを作成
-    let (_tmp0, mut mmap0, _pool0, buffer0) = host_create_shm_buffer(&shm, width, height).expect("create_shm_buffer 0 failed");
-    let (_tmp1, mut mmap1, _pool1, buffer1) = host_create_shm_buffer(&shm, width, height).expect("create_shm_buffer 1 failed");
+    // 入力ハンドラ登録（デモ用に motion と key をログ出力）
+    use wayland_client::WEnum;
+    use wayland_client::protocol::wl_keyboard::KeyState;
 
-    fill_pattern(&mut mmap0, width, height, stride, 0);
-    fill_pattern(&mut mmap1, width, height, stride, 64);
-    mmap0.flush().expect("flush failed");
-    mmap1.flush().expect("flush failed");
+    let _ = register_pointer_and_keyboard(
+        &mut host,
+        Some(Arc::new(|x: f64, y: f64| { println!("Pointer motion: {} {}", x, y); })),
+        Some(Arc::new(|k: u32, s: WEnum<KeyState>| { println!("Key event: {} {:?}", k, s); })),
+    );
 
-    // 入力ハンドラ
-    if let Ok(seat) = globals.instantiate_exact::<wl_seat::WlSeat>(1) {
-        let pointer = seat.get_pointer();
-        pointer.quick_assign(move |_ptr, event, _| {
-            match event {
-                wl_pointer::Event::Enter { surface: _, serial: _, surface_x, surface_y } => {
-                    println!("Pointer enter: {} {}", surface_x, surface_y);
-                }
-                wl_pointer::Event::Leave { .. } => {
-                    println!("Pointer leave");
-                }
-                wl_pointer::Event::Motion { surface_x, surface_y, .. } => {
-                    println!("Pointer motion: {} {}", surface_x, surface_y);
-                }
-                wl_pointer::Event::Button { button, state, .. } => {
-                    println!("Pointer button: {} {:?}", button, state);
-                }
-                _ => {}
-            }
-        });
+    // Try to make surface a toplevel so compositor maps it as a window
+    host.set_toplevel(&mut surf).ok();
 
-        let keyboard = seat.get_keyboard();
-        keyboard.quick_assign(move |_kb, event, _| {
-            match event {
-                wl_keyboard::Event::Key { key, state, .. } => {
-                    println!("Key event: {} {:?}", key, state);
-                }
-                wl_keyboard::Event::Enter { .. } => println!("Keyboard enter"),
-                wl_keyboard::Event::Leave { .. } => println!("Keyboard leave"),
-                _ => {}
-            }
-        });
-    }
-
-    // wl_shell を使って toplevel にする
-    if let Ok(wl_shell) = globals.instantiate_exact::<wayland_client::protocol::wl_shell::WlShell>(1) {
-        let shell_surface = wl_shell.get_shell_surface(&surface);
-        shell_surface.set_toplevel();
-    }
-
-    // 初期表示
-    surface.attach(Some(&buffer0), 0, 0);
-    surface.commit();
-    event_queue.sync_roundtrip(&mut (), |_, _, _| {}).expect("roundtrip failed");
-
-    // フレーム駆動でダブルバッファを切り替える
+    // フレームコールバック管理
     let frame_requested = Arc::new(AtomicBool::new(false));
-    let mut front = 0usize;
-    let mut phase: u8 = 0;
-
-    // 最初のフレームコールバックを要求
-    {
-        let cb = surface.frame();
-        let fr = frame_requested.clone();
-        cb.quick_assign(move |_cb, event, _| match event {
-            wl_callback::Event::Done { .. } => { fr.store(true, Ordering::SeqCst); }
-            _ => {}
-        });
-    }
+    // 最初のフレームを要求
+    surf.request_frame(frame_requested.clone()).expect("request_frame failed");
 
     let target_frame = Duration::from_millis(16);
+    let mut phase: u8 = 0;
     loop {
         let start = Instant::now();
 
         // イベントを処理
-        event_queue.dispatch(&mut (), |_, _, _| {}).expect("dispatch failed");
+        host.dispatch().ok();
 
         if frame_requested.load(Ordering::SeqCst) {
             phase = phase.wrapping_add(8);
-            if front == 0 {
-                fill_pattern(&mut mmap1, width, height, stride, phase);
-                mmap1.flush().ok();
-                surface.attach(Some(&buffer1), 0, 0);
-                front = 1;
-            } else {
-                fill_pattern(&mut mmap0, width, height, stride, phase);
-                mmap0.flush().ok();
-                surface.attach(Some(&buffer0), 0, 0);
-                front = 0;
+            let back = surf.back_buffer_mut();
+            for y in 0..(height as usize) {
+                for x in 0..(width as usize) {
+                    let offset = y * stride + x * 4;
+                    let r = ((x + phase as usize) % 256) as u8;
+                    let g = ((y + phase as usize) % 256) as u8;
+                    let b = (((x + y + phase as usize) / 2) % 256) as u8;
+                    back[offset + 0] = b;
+                    back[offset + 1] = g;
+                    back[offset + 2] = r;
+                    back[offset + 3] = 0xff;
+                }
             }
-            surface.commit();
-
-            // 新しいコールバックを設定
-            let cb2 = surface.frame();
-            let fr2 = frame_requested.clone();
-            fr2.store(false, Ordering::SeqCst);
-            cb2.quick_assign(move |_cb, event, _| match event {
-                wl_callback::Event::Done { .. } => { fr2.store(true, Ordering::SeqCst); }
-                _ => {}
-            });
+            surf.swap_and_commit().expect("swap_and_commit failed");
+            // 再度フレームを要求
+            frame_requested.store(false, Ordering::SeqCst);
+            surf.request_frame(frame_requested.clone()).expect("request_frame failed");
         }
 
         let elapsed = start.elapsed();
