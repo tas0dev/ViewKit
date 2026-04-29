@@ -33,7 +33,7 @@ fn main() {
     let c2 = Canvas::new(Color::new(0x00, 0xff, 0x00, 0xff), width, 0); // fill remaining
     let c3 = Canvas::new(Color::new(0x00, 0x00, 0xff, 0xff), width, 100);
     let p1 = c1.view().padding(4.0).frame(Some(width), Some(100)).into_pair();
-    let p2 = c2.view().padding_each(8.0,8.0,8.0,8.0).flex_column().into_pair();
+    let p2 = c2.view().padding_each(8.0,8.0,8.0,8.0).frame_fill().flex_grow(1.0).into_pair();
     let p3 = c3.view().padding(4.0).frame(Some(width), Some(100)).into_pair();
     let container = Container::with_children(vec![p1, p2, p3]);
 

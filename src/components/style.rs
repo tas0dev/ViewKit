@@ -74,6 +74,19 @@ impl StyleBuilder {
         self
     }
 
+    /// Set both width and height to fill available space (100%)
+    pub fn frame_fill(mut self) -> Self {
+        self.style.size.width = ui_layout::Length::Percent(100.0);
+        self.style.size.height = ui_layout::Length::Percent(100.0);
+        self
+    }
+
+    /// Set flex-grow for items placed in a flex container
+    pub fn flex_grow(mut self, v: f32) -> Self {
+        self.style.item_style.flex_grow = v;
+        self
+    }
+
     /// Build the ui_layout::Style
     pub fn build(self) -> ui_layout::Style {
         self.style

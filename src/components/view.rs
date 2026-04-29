@@ -49,6 +49,19 @@ impl View {
         self
     }
 
+    /// Set both width and height to fill available space (100%) of the containing block
+    pub fn frame_fill(mut self) -> Self {
+        self.style.size.width = ui_layout::Length::Percent(100.0);
+        self.style.size.height = ui_layout::Length::Percent(100.0);
+        self
+    }
+
+    /// Set flex-grow for this item when placed in a flex container
+    pub fn flex_grow(mut self, v: f32) -> Self {
+        self.style.item_style.flex_grow = v;
+        self
+    }
+
     pub fn flex_row(mut self) -> Self {
         self.style.display = ui_layout::Display::Flex { flex_direction: ui_layout::FlexDirection::Row };
         self
