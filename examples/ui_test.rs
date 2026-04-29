@@ -8,6 +8,7 @@ use viewkit::components::{
     Component,
     Canvas,
     Container,
+    Card,
     ComponentExt,
 };
 
@@ -16,8 +17,8 @@ fn main() {
     let mut host = host_HostDisplay::new().expect("host_HostDisplay::new failed");
 
     // HostDisplay 経由で surface を作成
-    let width: i32 = 400;
-    let height: i32 = 240;
+    let width: i32 = 800;
+    let height: i32 = 480;
     let stride = (width * 4) as usize;
     let mut surf = host.create_surface(width, height).expect("create_surface failed");
 
@@ -33,9 +34,11 @@ fn main() {
     let c2 = Canvas::new(Color::new(0x00, 0xff, 0x00, 0xff), width, 0); // fill remaining
     let c3 = Canvas::new(Color::new(0x00, 0x00, 0xff, 0xff), width, 100);
     let p1 = c1.view().padding(4.0).frame(Some(width), Some(100)).into_pair();
+    let card = Card::new(150, 150, Color::new(0xff, 0xff, 0xff, 0xff));
+    let p_card = card.view().padding(8.0).into_pair();
     let p2 = c2.view().padding_each(8.0,8.0,8.0,8.0).frame_fill().flex_grow(1.0).into_pair();
     let p3 = c3.view().padding(4.0).frame(Some(width), Some(100)).into_pair();
-    let container = Container::with_children(vec![p1, p2, p3]);
+    let container = Container::with_children(vec![p1, p_card, p2, p3]);
 
     // initial render via container
     {

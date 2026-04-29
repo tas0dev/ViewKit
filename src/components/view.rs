@@ -76,7 +76,14 @@ impl View {
         self.style
     }
 
-    pub fn into_pair(self) -> (Box<dyn Component>, ui_layout::Style) {
+    pub fn into_pair(mut self) -> (Box<dyn Component>, ui_layout::Style) {
+        let (pw, ph) = self.inner.pref_size();
+        if let ui_layout::Length::Auto = self.style.size.width {
+            if let Some(w) = pw { self.style.size.width = ui_layout::Length::Px(w as f32); }
+        }
+        if let ui_layout::Length::Auto = self.style.size.height {
+            if let Some(h) = ph { self.style.size.height = ui_layout::Length::Px(h as f32); }
+        }
         (self.inner, self.style)
     }
 }

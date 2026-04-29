@@ -11,11 +11,13 @@ pub trait Component {
 
 pub mod canvas;
 pub mod container;
+pub mod card;
 pub mod style;
 pub mod view;
 
 pub use canvas::Canvas;
 pub use container::Container;
+pub use card::Card;
 pub use style::StyleBuilder;
 pub use view::View;
 pub mod ext;
