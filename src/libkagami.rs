@@ -365,11 +365,11 @@ mod unix_impl {
                 // Wait for compositor to send configure and our Dispatch will ack it.
                 let mut st = RegistryState;
                 let _ = self.event_queue.roundtrip(&mut st).map_err(|e| format!("roundtrip failed: {}", e))?;
-                // After configure/ack, attach current buffer and commit to make the surface visible.
-                hs.surface.attach(Some(&hs.buffer0), 0, 0);
-                hs.surface.commit();
-                self.conn.flush().map_err(|e| format!("conn flush failed: {}", e))?;
-                println!("libkagami: requested xdg_wm_base xdg_surface/xdg_toplevel and attached buffer");
+                // After configure/ack, ensure the buffer we rendered into becomes the
+                // front buffer and is attached. Use swap_and_commit which flips the
+                // back buffer into front and commits it.
+                hs.swap_and_commit().map_err(|e| format!("initial buffer attach failed: {}", e))?;
+                println!("libkagami: requested xdg_wm_base xdg_surface/xdg_toplevel and attached buffer (via swap)");
                 return Ok(());
             }
             // fallback to wl_shell

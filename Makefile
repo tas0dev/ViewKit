@@ -6,4 +6,4 @@ build:
 run: wayland
 	
 wayland: build
-	@MOCHI_HOST_POC=1 cargo run --target x86_64-unknown-linux-gnu --bin ui_test
+	@MOCHI_HOST_POC=1 WAYLAND_DEBUG=1 cargo run --target x86_64-unknown-linux-gnu --bin ui_test

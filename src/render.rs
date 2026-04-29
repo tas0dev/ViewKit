@@ -1,5 +1,6 @@
 // 簡易レンダラ: 生の BGRA/ARGB バッファに直接描くユーティリティ
 
+#[derive(Clone, Copy)]
 pub struct Color {
     pub r: u8,
     pub g: u8,

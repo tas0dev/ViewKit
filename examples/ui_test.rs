@@ -1,7 +1,10 @@
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::{Duration, Instant};
-use viewkit::{host_HostDisplay, register_pointer_and_keyboard};
+use viewkit::{host_HostDisplay, register_pointer_and_keyboard, Color};
+use viewkit::components::{
+    Canvas
+};
 
 fn main() {
     // Wayland 接続を shim 経由で作る
@@ -23,7 +26,12 @@ fn main() {
         Some(Arc::new(|k: u32, s: WEnum<KeyState>| { println!("Key event: {} {:?}", k, s); })),
     );
 
-    // Try to make surface a toplevel so compositor maps it as a window
+    let canvas = Canvas::new(Color::new(0x20, 0xa0, 0xff, 0xff), width, height);
+    {
+        let back = surf.back_buffer_mut();
+        canvas.render(back, width as usize, height as usize, stride);
+    }
+
     host.set_toplevel(&mut surf).ok();
 
     // フレームコールバック管理
@@ -32,7 +40,6 @@ fn main() {
     surf.request_frame(frame_requested.clone()).expect("request_frame failed");
 
     let target_frame = Duration::from_millis(16);
-    let mut phase: u8 = 0;
     loop {
         let start = Instant::now();
 
@@ -40,20 +47,9 @@ fn main() {
         host.dispatch().ok();
 
         if frame_requested.load(Ordering::SeqCst) {
-            phase = phase.wrapping_add(8);
+            // render canvas into back buffer
             let back = surf.back_buffer_mut();
-            for y in 0..(height as usize) {
-                for x in 0..(width as usize) {
-                    let offset = y * stride + x * 4;
-                    let r = ((x + phase as usize) % 256) as u8;
-                    let g = ((y + phase as usize) % 256) as u8;
-                    let b = (((x + y + phase as usize) / 2) % 256) as u8;
-                    back[offset + 0] = b;
-                    back[offset + 1] = g;
-                    back[offset + 2] = r;
-                    back[offset + 3] = 0xff;
-                }
-            }
+            canvas.render(back, width as usize, height as usize, stride);
             surf.swap_and_commit().expect("swap_and_commit failed");
             // 再度フレームを要求
             frame_requested.store(false, Ordering::SeqCst);
