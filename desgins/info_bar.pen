@@ -1,0 +1,44 @@
+{
+  "version": "2.11",
+  "children": [
+    {
+      "type": "frame",
+      "id": "qqu64",
+      "x": 188,
+      "y": -68,
+      "name": "InfoBar",
+      "width": 1280,
+      "height": 32,
+      "fill": "#ffffff99",
+      "stroke": {
+        "align": "inside",
+        "thickness": 1
+      },
+      "effect": {
+        "type": "background_blur",
+        "radius": 21
+      },
+      "gap": 1004.8400268554688,
+      "padding": [
+        0,
+        24
+      ],
+      "justifyContent": "space_between",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "cHNHj",
+          "name": "Container",
+          "width": "fit_content(78.83000183105469)",
+          "height": "fit_content(28)",
+          "stroke": {
+            "align": "inside",
+            "thickness": 1
+          },
+          "layout": "vertical"
+        }
+      ]
+    }
+  ]
+}

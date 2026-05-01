@@ -1,0 +1,36 @@
+{
+  "version": "2.11",
+  "children": [
+    {
+      "type": "frame",
+      "id": "P0x7Cu",
+      "x": 200,
+      "y": 854,
+      "name": "Dock",
+      "width": 250,
+      "height": 75,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1
+      },
+      "layout": "none",
+      "children": [
+        {
+          "type": "rectangle",
+          "cornerRadius": 30,
+          "id": "AeJaw",
+          "x": 0,
+          "y": 0,
+          "name": "BG",
+          "fill": "#ffffff99",
+          "width": 250,
+          "height": 75,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1
+          }
+        }
+      ]
+    }
+  ]
+}
