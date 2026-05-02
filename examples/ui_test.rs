@@ -13,7 +13,13 @@ fn main() -> Result<(), String> {
     let mut surface = host.create_surface(WIDTH as i32, HEIGHT as i32)?;
 
     let dock_document = include_str!("../resources/components/dock.html");
-    let (html, css) = split_embedded_style(dock_document);
+    let appicon_document = include_str!("../resources/components/appicon.html");
+    let dock = parse_component_template(dock_document);
+    let appicon = parse_component_template(appicon_document);
+
+    let dock_children = vec![appicon.html_fragment.clone(); 8].join("\n");
+    let html = render_component(&dock, &dock_children);
+    let css = merge_css(&[&dock.css, &appicon.css]);
 
     host.set_toplevel(&mut surface)?;
     let rendered = pipeline::render_document(&html, &css, WIDTH, HEIGHT);
@@ -55,6 +61,43 @@ fn split_embedded_style(document: &str) -> (String, String) {
         }
     }
     (document.to_string(), String::new())
+}
+
+#[cfg(unix)]
+struct ComponentTemplate {
+    html_fragment: String,
+    css: String,
+}
+
+#[cfg(unix)]
+fn parse_component_template(document: &str) -> ComponentTemplate {
+    let (html_fragment, css) = split_embedded_style(document);
+    ComponentTemplate { html_fragment, css }
+}
+
+#[cfg(unix)]
+fn render_component(template: &ComponentTemplate, children_html: &str) -> String {
+    template
+        .html_fragment
+        .replace("<Children />", children_html)
+        .replace("<Children/>", children_html)
+        .replace("<Children></Children>", children_html)
+}
+
+#[cfg(unix)]
+fn merge_css(parts: &[&str]) -> String {
+    let mut css = String::new();
+    for part in parts {
+        let p = part.trim();
+        if p.is_empty() {
+            continue;
+        }
+        if !css.is_empty() {
+            css.push('\n');
+        }
+        css.push_str(p);
+    }
+    css
 }
 
 #[cfg(unix)]
