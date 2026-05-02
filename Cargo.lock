@@ -1165,6 +1165,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "swiftlib"
+version = "0.1.0"
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1316,6 +1320,7 @@ dependencies = [
  "html5ever",
  "lightningcss",
  "memmap2",
+ "swiftlib",
  "tempfile",
  "tiny-skia",
  "ui_layout",

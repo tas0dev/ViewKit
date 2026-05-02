@@ -17,7 +17,7 @@ fn main() -> Result<(), String> {
     let dock = parse_component_template(dock_document);
     let appicon = parse_component_template(appicon_document);
 
-    let dock_children = vec![appicon.html_fragment.clone(); 8].join("\n");
+    let dock_children = vec![appicon.html_fragment.clone(); 5].join("\n");
     let html = render_component(&dock, &dock_children);
     let css = merge_css(&[&dock.css, &appicon.css]);
 

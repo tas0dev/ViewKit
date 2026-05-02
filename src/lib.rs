@@ -1,6 +1,6 @@
 // ViewKit のホスト向け Shim を公開する
-// Minimal crate exposing only the libkagami host shim.
-
+// Shared libkagami is hosted under ../Kagami.
+#[path = "../../Kagami/src/libkagami.rs"]
 pub mod libkagami;
 pub mod pipeline;
 pub use libkagami::*;
