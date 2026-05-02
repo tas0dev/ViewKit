@@ -12,21 +12,11 @@ fn main() -> Result<(), String> {
     let mut host = host_HostDisplay::new()?;
     let mut surface = host.create_surface(WIDTH as i32, HEIGHT as i32)?;
 
-    let html = r#"
-        <body>
-            <h1>ViewKit Test</h1>
-            <div>asdf</div>
-        </body>
-    "#;
-    let css = r#"
-        body { background: #202020; color: #efefef; }
-        h1 { color: #8ad7ff; }
-        p { color: #d9d9d9; }
-        div { color: #7af0b4; }
-    "#;
+    let dock_document = include_str!("../resources/components/dock.html");
+    let (html, css) = split_embedded_style(dock_document);
 
     host.set_toplevel(&mut surface)?;
-    let rendered = pipeline::render_document(html, css, WIDTH, HEIGHT);
+    let rendered = pipeline::render_document(&html, &css, WIDTH, HEIGHT);
     blit_framebuffer_to_surface(&rendered.framebuffer.pixels, surface.back_buffer_mut());
     surface.swap_and_commit()?;
 
@@ -47,6 +37,24 @@ fn main() -> Result<(), String> {
             println!("ui_test: frame {}", frame_count);
         }
     }
+}
+
+#[cfg(unix)]
+fn split_embedded_style(document: &str) -> (String, String) {
+    let open_tag = "<style>";
+    let close_tag = "</style>";
+    if let (Some(open), Some(close)) = (document.find(open_tag), document.find(close_tag)) {
+        if close > open {
+            let css_start = open + open_tag.len();
+            let css = document[css_start..close].trim().to_string();
+            let mut html = String::with_capacity(document.len() - (close + close_tag.len() - open));
+            html.push_str(document[..open].trim());
+            html.push('\n');
+            html.push_str(document[close + close_tag.len()..].trim());
+            return (html, css);
+        }
+    }
+    (document.to_string(), String::new())
 }
 
 #[cfg(unix)]
