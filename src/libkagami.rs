@@ -428,6 +428,7 @@ mod unix_impl {
                 self.surface.attach(Some(&self.buffer1), 0, 0);
                 self.front = 1;
             }
+            self.surface.damage_buffer(0, 0, self.width, self.height);
             self.surface.commit();
             let res = self.conn.flush().map_err(|e| format!("conn flush failed: {}", e));
             match self.front {
@@ -450,6 +451,7 @@ mod unix_impl {
                 self.surface.attach(Some(&self.buffer0), 0, 0);
                 self.front = 0;
             }
+            self.surface.damage_buffer(0, 0, self.width, self.height);
             self.surface.commit();
             let res = self.conn.flush().map_err(|e| format!("conn flush failed: {}", e));
             match self.front {
