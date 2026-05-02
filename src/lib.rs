@@ -1,11 +1,5 @@
 // ViewKit のホスト向け Shim を公開する
+// Minimal crate exposing only the libkagami host shim.
 
 pub mod libkagami;
-pub mod render;
-pub mod view;
-pub mod components;
-pub mod font;
-
 pub use libkagami::*;
-pub use render::*;
-pub use view::*;
