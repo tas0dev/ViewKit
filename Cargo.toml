@@ -25,10 +25,6 @@ tiny-skia = "0.12.0"
 name = "viewkit"
 path = "src/lib.rs"
 
-[[bin]]
-name = "ui_test"
-path = "examples/ui_test.rs"
-
 [profile.release]
 panic = "abort"
 
