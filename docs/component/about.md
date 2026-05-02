@@ -18,3 +18,6 @@ An editor for these can be downloaded from pencil.dev.
 - [Card](./card.md)
 - [Button](./button.md)
 - [Text](./text.md)
+
+## How to create original component?
+Please refer to [this](how-to-create.md) file.
