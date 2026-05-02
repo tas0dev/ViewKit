@@ -23,8 +23,12 @@ fn find_project_root(manifest_dir: &Path) -> PathBuf {
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let manifest_path = Path::new(&manifest_dir);
+    let target = env::var("TARGET").unwrap_or_default();
 
-    if env::var("MOCHI_HOST_POC").is_ok() {
+    println!("cargo:rerun-if-env-changed=MOCHI_HOST_POC");
+    println!("cargo:rerun-if-env-changed=TARGET");
+
+    if env::var("MOCHI_HOST_POC").is_ok() || target.contains("unknown-linux-gnu") {
         return;
     }
 
