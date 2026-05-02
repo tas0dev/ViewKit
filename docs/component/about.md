@@ -17,3 +17,4 @@ An editor for these can be downloaded from pencil.dev.
 ## Components list
 - [Card](./card.md)
 - [Button](./button.md)
+- [Text](./text.md)
