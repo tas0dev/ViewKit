@@ -1,8 +1,9 @@
 use super::dom::DomNodeKind;
 use super::style::{StyleMap, StyledNode, StyledTree};
 use ui_layout::{
-    Display, FlexDirection, Fragment, ItemFragment, LayoutBoxes, LayoutEngine,
-    LayoutNode as UiLayoutNode, Length, SizeStyle, Style as UiStyle,
+    AlignItems, BoxSizing, Display, FlexDirection, Fragment, ItemFragment, ItemStyle,
+    JustifyContent, LayoutBoxes, LayoutEngine, LayoutNode as UiLayoutNode, Length, SizeStyle,
+    Spacing, Style as UiStyle,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -148,6 +149,16 @@ fn style_from_css(styles: &StyleMap) -> UiStyle {
         };
     }
 
+    style.justify_content = parse_justify_content(styles.get("justify-content"));
+    style.align_items = parse_align_items(styles.get("align-items"));
+    style.column_gap = parse_length(styles.get("column-gap"), Length::Px(0.0));
+    style.row_gap = parse_length(styles.get("row-gap"), Length::Px(0.0));
+    if let Some(gap) = styles.get("gap") {
+        let g = parse_length_token(gap).unwrap_or(Length::Px(0.0));
+        style.column_gap = g.clone();
+        style.row_gap = g;
+    }
+
     style.size = SizeStyle {
         width: parse_length(styles.get("width"), Length::Auto),
         height: parse_length(styles.get("height"), Length::Auto),
@@ -156,6 +167,20 @@ fn style_from_css(styles: &StyleMap) -> UiStyle {
         min_height: parse_length(styles.get("min-height"), Length::Auto),
         max_height: parse_length(styles.get("max-height"), Length::Auto),
     };
+
+    style.item_style = ItemStyle {
+        flex_grow: parse_f32(styles.get("flex-grow"), 0.0),
+        flex_shrink: parse_f32(styles.get("flex-shrink"), 1.0),
+        flex_basis: parse_length(styles.get("flex-basis"), Length::Auto),
+        align_self: parse_align_self(styles.get("align-self")),
+    };
+
+    style.box_sizing = match styles.get("box-sizing").map(|s| s.trim()) {
+        Some("border-box") => BoxSizing::BorderBox,
+        _ => BoxSizing::ContentBox,
+    };
+
+    style.spacing = spacing_from_css(styles);
 
     style
 }
@@ -171,41 +196,164 @@ fn parse_length(value: Option<&String>, default: Length) -> Length {
     let Some(raw) = value else {
         return default;
     };
+    parse_length_token(raw).unwrap_or(default)
+}
+
+fn parse_length_token(raw: &str) -> Option<Length> {
     let s = raw.trim().to_ascii_lowercase();
 
     if s == "auto" {
-        return Length::Auto;
+        return Some(Length::Auto);
     }
     if let Some(px) = s.strip_suffix("px") {
         return px
             .trim()
             .parse::<f32>()
             .map(Length::Px)
-            .unwrap_or(default);
+            .ok();
     }
     if let Some(pct) = s.strip_suffix('%') {
         return pct
             .trim()
             .parse::<f32>()
             .map(Length::Percent)
-            .unwrap_or(default);
+            .ok();
     }
     if let Some(vw) = s.strip_suffix("vw") {
         return vw
             .trim()
             .parse::<f32>()
             .map(Length::Vw)
-            .unwrap_or(default);
+            .ok();
     }
     if let Some(vh) = s.strip_suffix("vh") {
         return vh
             .trim()
             .parse::<f32>()
             .map(Length::Vh)
-            .unwrap_or(default);
+            .ok();
     }
 
-    default
+    s.parse::<f32>().map(Length::Px).ok()
+}
+
+fn parse_f32(v: Option<&String>, default: f32) -> f32 {
+    v.and_then(|s| s.trim().parse::<f32>().ok()).unwrap_or(default)
+}
+
+fn parse_justify_content(value: Option<&String>) -> JustifyContent {
+    match value.map(|s| s.trim()) {
+        Some("center") => JustifyContent::Center,
+        Some("end") | Some("flex-end") => JustifyContent::End,
+        Some("space-between") => JustifyContent::SpaceBetween,
+        Some("space-around") => JustifyContent::SpaceAround,
+        Some("space-evenly") => JustifyContent::SpaceEvenly,
+        _ => JustifyContent::Start,
+    }
+}
+
+fn parse_align_items(value: Option<&String>) -> AlignItems {
+    match value.map(|s| s.trim()) {
+        Some("start") | Some("flex-start") => AlignItems::Start,
+        Some("center") => AlignItems::Center,
+        Some("end") | Some("flex-end") => AlignItems::End,
+        _ => AlignItems::Stretch,
+    }
+}
+
+fn parse_align_self(value: Option<&String>) -> Option<AlignItems> {
+    match value.map(|s| s.trim()) {
+        Some("auto") | None => None,
+        Some("start") | Some("flex-start") => Some(AlignItems::Start),
+        Some("center") => Some(AlignItems::Center),
+        Some("end") | Some("flex-end") => Some(AlignItems::End),
+        Some("stretch") => Some(AlignItems::Stretch),
+        _ => None,
+    }
+}
+
+fn spacing_from_css(styles: &StyleMap) -> Spacing {
+    let mut spacing = Spacing::default();
+
+    if let Some(border) = styles.get("border") {
+        if let Some(width) = border.split_whitespace().find_map(parse_length_token) {
+            spacing.border_top = width.clone();
+            spacing.border_right = width.clone();
+            spacing.border_bottom = width.clone();
+            spacing.border_left = width;
+        }
+    }
+
+    if let Some(sh) = parse_quad_shorthand(styles.get("margin")) {
+        spacing.margin_top = sh[0].clone();
+        spacing.margin_right = sh[1].clone();
+        spacing.margin_bottom = sh[2].clone();
+        spacing.margin_left = sh[3].clone();
+    }
+    if let Some(sh) = parse_quad_shorthand(styles.get("padding")) {
+        spacing.padding_top = sh[0].clone();
+        spacing.padding_right = sh[1].clone();
+        spacing.padding_bottom = sh[2].clone();
+        spacing.padding_left = sh[3].clone();
+    }
+    if let Some(sh) = parse_quad_shorthand(styles.get("border-width")) {
+        spacing.border_top = sh[0].clone();
+        spacing.border_right = sh[1].clone();
+        spacing.border_bottom = sh[2].clone();
+        spacing.border_left = sh[3].clone();
+    }
+
+    spacing.margin_top = parse_length(styles.get("margin-top"), spacing.margin_top);
+    spacing.margin_right = parse_length(styles.get("margin-right"), spacing.margin_right);
+    spacing.margin_bottom = parse_length(styles.get("margin-bottom"), spacing.margin_bottom);
+    spacing.margin_left = parse_length(styles.get("margin-left"), spacing.margin_left);
+
+    spacing.padding_top = parse_length(styles.get("padding-top"), spacing.padding_top);
+    spacing.padding_right = parse_length(styles.get("padding-right"), spacing.padding_right);
+    spacing.padding_bottom = parse_length(styles.get("padding-bottom"), spacing.padding_bottom);
+    spacing.padding_left = parse_length(styles.get("padding-left"), spacing.padding_left);
+
+    spacing.border_top = parse_length(styles.get("border-top-width"), spacing.border_top);
+    spacing.border_right = parse_length(styles.get("border-right-width"), spacing.border_right);
+    spacing.border_bottom = parse_length(styles.get("border-bottom-width"), spacing.border_bottom);
+    spacing.border_left = parse_length(styles.get("border-left-width"), spacing.border_left);
+
+    spacing
+}
+
+fn parse_quad_shorthand(value: Option<&String>) -> Option<[Length; 4]> {
+    let raw = value?;
+    let tokens: Vec<_> = raw
+        .split_whitespace()
+        .filter_map(parse_length_token)
+        .collect();
+    match tokens.len() {
+        1 => Some([
+            tokens[0].clone(),
+            tokens[0].clone(),
+            tokens[0].clone(),
+            tokens[0].clone(),
+        ]),
+        2 => Some([
+            tokens[0].clone(),
+            tokens[1].clone(),
+            tokens[0].clone(),
+            tokens[1].clone(),
+        ]),
+        3 => Some([
+            tokens[0].clone(),
+            tokens[1].clone(),
+            tokens[2].clone(),
+            tokens[1].clone(),
+        ]),
+        4 => Some([
+            tokens[0].clone(),
+            tokens[1].clone(),
+            tokens[2].clone(),
+            tokens[3].clone(),
+        ]),
+        _ => None,
+    }
 }
 
 fn estimate_text_width(text: &str) -> f32 {

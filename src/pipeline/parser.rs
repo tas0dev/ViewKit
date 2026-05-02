@@ -59,13 +59,15 @@ fn parse_html(html: &str) -> DomDocument {
                 }
 
                 let self_closing = raw_tag.ends_with('/');
+                let raw_tag = raw_tag.trim_end_matches('/').trim();
                 let tag_name = raw_tag
                     .trim_end_matches('/')
                     .split_whitespace()
                     .next()
                     .unwrap_or("div")
                     .to_ascii_lowercase();
-                let node = DomNode::element(tag_name);
+                let mut node = DomNode::element(tag_name);
+                parse_attributes(raw_tag, &mut node);
 
                 if self_closing {
                     push_child(&mut stack, node);
@@ -103,6 +105,21 @@ fn parse_html(html: &str) -> DomDocument {
 fn push_child(stack: &mut [DomNode], child: DomNode) {
     if let Some(last) = stack.last_mut() {
         last.children.push(child);
+    }
+}
+
+fn parse_attributes(raw_tag: &str, node: &mut DomNode) {
+    let mut parts = raw_tag.split_whitespace();
+    let _tag_name = parts.next();
+    if let DomNodeKind::Element(element) = &mut node.kind {
+        for attr in parts {
+            if let Some((key, value)) = attr.split_once('=') {
+                let value = value.trim_matches('"').trim_matches('\'').to_string();
+                element
+                    .attributes
+                    .insert(key.to_ascii_lowercase(), value);
+            }
+        }
     }
 }
 
