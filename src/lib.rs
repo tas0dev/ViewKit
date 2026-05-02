@@ -3,6 +3,6 @@
 #[path = "../../Kagami/src/libkagami.rs"]
 pub mod libkagami;
 pub mod pipeline;
-mod components;
+pub mod components;
 
 pub use libkagami::*;
