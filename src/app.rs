@@ -1,19 +1,21 @@
-use crate::components::Vcomponent;
-use crate::{host_HostDisplay, host_HostSurface, pipeline};
+use crate::components::VComponent;
+use crate::{host_HostDisplay, host_HostSurface, pipeline, register_pointer_and_keyboard};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+pub type UIBuilder = Box<dyn Fn() -> VComponent + Send + Sync>;
+
 pub struct AppBuilder {
     width: u32,
     height: u32,
-    ui: Option<Vcomponent>,
+    ui_fn: Option<UIBuilder>,
 }
 
 pub struct App {
     host: host_HostDisplay,
     surface: host_HostSurface,
-    ui: Vcomponent,
+    ui_fn: UIBuilder,
     width: u32,
     height: u32,
 }
@@ -23,12 +25,16 @@ impl AppBuilder {
         Self {
             width,
             height,
-            ui: None,
+            ui_fn: None,
         }
     }
 
-    pub fn with_ui(mut self, ui: Vcomponent) -> Result<Self, String> {
-        self.ui = Some(ui);
+    /// UIビルダー関数を設定（毎フレーム呼び出される）
+    pub fn with_ui_fn<F>(mut self, ui_fn: F) -> Result<Self, String>
+    where
+        F: Fn() -> VComponent + Send + Sync + 'static,
+    {
+        self.ui_fn = Some(Box::new(ui_fn));
         Ok(self)
     }
 
@@ -40,7 +46,7 @@ impl AppBuilder {
         Ok(App {
             host,
             surface,
-            ui: self.ui.ok_or("UI not set".to_string())?,
+            ui_fn: self.ui_fn.ok_or("UI function not set".to_string())?,
             width: self.width,
             height: self.height,
         })
@@ -53,18 +59,31 @@ impl App {
     }
 
     pub fn run(mut self) -> Result<(), String> {
-        // Initial render
-        let html = self.ui.render();
-        let css = self.ui.css();
+        // ポインタイベントを登録してログ出力
+        let pointer_callback = Arc::new(|x: f64, y: f64| {
+            println!("[POINTER] Mouse moved to: ({:.2}, {:.2})", x, y);
+        });
 
-        let rendered = pipeline::render_document(&html, &css, self.width, self.height);
-        blit_framebuffer_to_surface(&rendered.framebuffer.pixels, self.surface.back_buffer_mut());
-        self.surface.swap_and_commit()?;
+        let keyboard_callback = Arc::new(|key: u32, state: wayland_client::WEnum<wayland_client::protocol::wl_keyboard::KeyState>| {
+            println!("[KEYBOARD] Key {} pressed/released: {:?}", key, state);
+        });
+
+        register_pointer_and_keyboard(&mut self.host, Some(pointer_callback), Some(keyboard_callback))?;
+        println!("Pointer and keyboard handlers registered");
 
         let frame_done = Arc::new(AtomicBool::new(false));
         let mut frame_count = 0_u32;
 
         loop {
+            // 毎フレーム UIビルダー関数を呼び出してUIを再構築
+            let ui = (self.ui_fn)();
+            let html = ui.render();
+            let css = ui.css();
+
+            let rendered = pipeline::render_document(&html, &css, self.width, self.height);
+            blit_framebuffer_to_surface(&rendered.framebuffer.pixels, self.surface.back_buffer_mut());
+            self.surface.swap_and_commit()?;
+
             frame_done.store(false, Ordering::SeqCst);
             self.surface.request_frame(frame_done.clone())?;
             self.surface.commit_front()?;
@@ -79,14 +98,6 @@ impl App {
                 println!("app: frame {}", frame_count);
             }
         }
-    }
-
-    pub fn ui_mut(&mut self) -> &mut Vcomponent {
-        &mut self.ui
-    }
-
-    pub fn ui(&self) -> &Vcomponent {
-        &self.ui
     }
 }
 

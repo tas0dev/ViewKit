@@ -44,6 +44,12 @@ path = "examples/stateful_ui.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "event_debug"
+path = "examples/event_debug.rs"
+test = false
+bench = false
+
 [profile.release]
 panic = "abort"
 

@@ -15,10 +15,14 @@ fn main() -> Result<(), String> {
     const WIDTH: u32 = 960;
     const HEIGHT: u32 = 540;
 
+    println!("ViewKit Event Debug Test");
+    println!("Move your mouse and click to see logs");
+    println!();
+
     AppBuilder::new(WIDTH, HEIGHT)
         .with_ui_fn(|| {
-            let icons = (0..5).map(|_| appicon());
-            dock().children(icons)
+            card()
+                .label("Mouse & Keyboard Test\n\nMove mouse or press keys\nCheck console for logs")
         })?
         .build()?
         .run()
@@ -26,5 +30,5 @@ fn main() -> Result<(), String> {
 
 #[cfg(not(unix))]
 fn main() {
-    eprintln!("ui_test requires a unix host with Wayland.");
+    eprintln!("event_debug requires a unix host with Wayland.");
 }

@@ -5,10 +5,10 @@ use std::collections::HashMap;
 pub type EventHandler = Box<dyn Fn() + Send + Sync>;
 
 // コンポーネントを表す構造体
-pub struct Vcomponent {
+pub struct VComponent {
     cached_html: String,
     cached_css: String,
-    children: Vec<Vcomponent>,
+    children: Vec<VComponent>,
     content: Vec<VContent>,
     attributes: HashMap<String, String>,
     handlers: HashMap<String, EventHandler>,
@@ -21,7 +21,7 @@ pub struct VContent {
     image: Option<DynamicImage>,
 }
 
-impl Vcomponent {
+impl VComponent {
     pub fn from_str(document: &'static str) -> Self {
         let (html, css) = split_embedded_style(document);
 
@@ -71,12 +71,12 @@ impl Vcomponent {
         self
     }
 
-    pub fn child(mut self, component: Vcomponent) -> Self {
+    pub fn child(mut self, component: VComponent) -> Self {
         self.children.push(component);
         self
     }
 
-    pub fn children(mut self, components: impl IntoIterator<Item = Vcomponent>) -> Self {
+    pub fn children(mut self, components: impl IntoIterator<Item =VComponent>) -> Self {
         self.children.extend(components);
         self
     }
@@ -128,6 +128,12 @@ impl Vcomponent {
         self.handlers.contains_key(event)
     }
 
+    pub fn trigger_handler(&self, event: &str) {
+        if let Some(handler) = self.handlers.get(event) {
+            handler();
+        }
+    }
+
     pub fn get_attributes(&self) -> &HashMap<String, String> {
         &self.attributes
     }
@@ -153,8 +159,8 @@ impl VContent {
 macro_rules! components_list {
     ($($name:ident),* $(,)?) => {
         $(
-            fn $name() -> Vcomponent {
-                Vcomponent::from_str(include_str!(concat!(
+            fn $name() -> VComponent {
+                VComponent::from_str(include_str!(concat!(
                     "../resources/components/",
                     stringify!($name),
                     ".html"

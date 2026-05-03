@@ -1,6 +1,6 @@
-use viewkit::components::Vcomponent;
+use viewkit::components::VComponent;
 use viewkit::components_list;
-use viewkit::{AppBuilder, State};
+use viewkit::AppBuilder;
 use std::sync::Arc;
 
 components_list! {
@@ -16,39 +16,36 @@ fn main() -> Result<(), String> {
     const WIDTH: u32 = 960;
     const HEIGHT: u32 = 540;
 
-    let screen_state: Arc<State<i32>> = Arc::new(State::new(0));
-
-    // ホーム画面
-    let home_screen = {
-        let state = screen_state.clone();
-        card()
-            .label("Home Screen")
-            .on_click(move || {
-                state.set(1);
-                println!("Navigated to detail screen");
-            })
-    };
-
-    // 詳細画面
-    let detail_screen = {
-        let state = screen_state.clone();
-        card()
-            .label("Detail Screen")
-            .on_click(move || {
-                state.set(0);
-                println!("Navigated back to home");
-            })
-    };
-
-    let current_screen = screen_state.get();
-    let ui = if current_screen == 0 {
-        home_screen
-    } else {
-        detail_screen
-    };
+    // 画面状態を管理
+    let screen_state: Arc<viewkit::State<i32>> = Arc::new(viewkit::State::new(0));
 
     AppBuilder::new(WIDTH, HEIGHT)
-        .with_ui(ui)?
+        .with_ui_fn({
+            let state = screen_state.clone();
+            move || {
+                let current_screen = state.get();
+
+                if current_screen == 0 {
+                    // ホーム画面
+                    let state = state.clone();
+                    card()
+                        .label("Home Screen - Click to Detail")
+                        .on_click(move || {
+                            state.set(1);
+                            println!("Navigated to detail screen");
+                        })
+                } else {
+                    // 詳細画面
+                    let state = state.clone();
+                    card()
+                        .label("Detail Screen - Click to Home")
+                        .on_click(move || {
+                            state.set(0);
+                            println!("Navigated back to home");
+                        })
+                }
+            }
+        })?
         .build()?
         .run()
 }
