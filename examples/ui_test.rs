@@ -1,4 +1,4 @@
-use viewkit::components::vComponent;
+use viewkit::components::Vcomponent;
 use viewkit::components_list;
 
 components_list! {

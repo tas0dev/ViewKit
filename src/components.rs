@@ -1,20 +1,20 @@
 use image::DynamicImage;
 
 // コンポーネントを表す構造体
-pub struct vComponent {
+pub struct Vcomponent {
     cached_html: String,
     cached_css: String,
-    children: Vec<vComponent>,
-    content: Vec<vContent>,
+    children: Vec<Vcomponent>,
+    content: Vec<VContent>,
 }
 
 // TODO: 画像対応
-pub struct vContent {
+pub struct VContent {
     string: Option<String>,
     image: Option<DynamicImage>,
 }
 
-impl vComponent {
+impl Vcomponent {
     pub fn from_str(document: &'static str) -> Self {
         let (html, css) = split_embedded_style(document);
 
@@ -26,12 +26,12 @@ impl vComponent {
         }
     }
 
-    pub fn child(mut self, component: vComponent) -> Self {
+    pub fn child(mut self, component: Vcomponent) -> Self {
         self.children.push(component);
         self
     }
 
-    pub fn children(mut self, components: impl IntoIterator<Item = vComponent>) -> Self {
+    pub fn children(mut self, components: impl IntoIterator<Item =Vcomponent>) -> Self {
         self.children.extend(components);
         self
     }
@@ -62,7 +62,7 @@ impl vComponent {
     }
 }
 
-impl vContent {
+impl VContent {
     pub fn string(s: String) -> Self {
         Self {
             string: Option::from(s),
@@ -82,8 +82,8 @@ impl vContent {
 macro_rules! components_list {
     ($($name:ident),* $(,)?) => {
         $(
-            fn $name() -> vComponent {
-                vComponent::from_str(include_str!(concat!(
+            fn $name() -> Vcomponent {
+                Vcomponent::from_str(include_str!(concat!(
                     "../resources/components/",
                     stringify!($name),
                     ".html"
