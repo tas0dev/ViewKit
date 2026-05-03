@@ -12,6 +12,7 @@ pub struct Vcomponent {
     content: Vec<VContent>,
     attributes: HashMap<String, String>,
     handlers: HashMap<String, EventHandler>,
+    visible: bool,
 }
 
 // TODO: 画像対応
@@ -31,6 +32,7 @@ impl Vcomponent {
             content: Vec::new(),
             attributes: HashMap::new(),
             handlers: HashMap::new(),
+            visible: true,
         }
     }
 
@@ -60,6 +62,11 @@ impl Vcomponent {
         self
     }
 
+    pub fn if_visible(mut self, visible: bool) -> Self {
+        self.visible = visible;
+        self
+    }
+
     pub fn new(self) -> Self {
         self
     }
@@ -75,6 +82,10 @@ impl Vcomponent {
     }
 
     pub fn render(&self) -> String {
+        if !self.visible {
+            return String::new();
+        }
+
         let children_html: String = self
             .children
             .iter()

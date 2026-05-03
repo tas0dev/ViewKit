@@ -38,6 +38,12 @@ path = "examples/ui_test.rs"
 test = false
 bench = false
 
+[[bin]]
+name = "stateful_ui"
+path = "examples/stateful_ui.rs"
+test = false
+bench = false
+
 [profile.release]
 panic = "abort"
 
