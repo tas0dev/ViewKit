@@ -1,4 +1,8 @@
 use image::DynamicImage;
+use std::collections::HashMap;
+
+// イベントハンドラーの型
+pub type EventHandler = Box<dyn Fn() + Send + Sync>;
 
 // コンポーネントを表す構造体
 pub struct Vcomponent {
@@ -6,6 +10,8 @@ pub struct Vcomponent {
     cached_css: String,
     children: Vec<Vcomponent>,
     content: Vec<VContent>,
+    attributes: HashMap<String, String>,
+    handlers: HashMap<String, EventHandler>,
 }
 
 // TODO: 画像対応
@@ -23,7 +29,39 @@ impl Vcomponent {
             cached_css: css,
             children: Vec::new(),
             content: Vec::new(),
+            attributes: HashMap::new(),
+            handlers: HashMap::new(),
         }
+    }
+
+    // ビルダーメソッド群
+    pub fn label(mut self, text: impl Into<String>) -> Self {
+        self.attributes.insert("label".to_string(), text.into());
+        self
+    }
+
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.attributes.insert("id".to_string(), id.into());
+        self
+    }
+
+    pub fn class(mut self, cls: impl Into<String>) -> Self {
+        self.attributes.insert("class".to_string(), cls.into());
+        self
+    }
+
+    pub fn text(mut self, content: impl Into<String>) -> Self {
+        self.content.push(VContent::string(content.into()));
+        self
+    }
+
+    pub fn on_click(mut self, handler: impl Fn() + Send + Sync + 'static) -> Self {
+        self.handlers.insert("click".to_string(), Box::new(handler));
+        self
+    }
+
+    pub fn new(self) -> Self {
+        self
     }
 
     pub fn child(mut self, component: Vcomponent) -> Self {
@@ -31,7 +69,7 @@ impl Vcomponent {
         self
     }
 
-    pub fn children(mut self, components: impl IntoIterator<Item =Vcomponent>) -> Self {
+    pub fn children(mut self, components: impl IntoIterator<Item = Vcomponent>) -> Self {
         self.children.extend(components);
         self
     }
@@ -44,10 +82,20 @@ impl Vcomponent {
             .collect::<Vec<_>>()
             .join("\n");
 
-        self.cached_html
+        let mut html = self.cached_html
             .replace("<Children />", &children_html)
             .replace("<Children/>", &children_html)
-            .replace("<Children></Children>", &children_html)
+            .replace("<Children></Children>", &children_html);
+
+        // 属性をHTMLに埋め込む
+        for (key, value) in &self.attributes {
+            html = html.replace(
+                &format!("{{{{ {} }}}}", key),
+                value
+            );
+        }
+
+        html
     }
 
     pub fn css(&self) -> String {
@@ -59,6 +107,18 @@ impl Vcomponent {
             }
         }
         merge_css(&all_css.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+    }
+
+    pub fn get_handler(&self, event: &str) -> Option<&EventHandler> {
+        self.handlers.get(event)
+    }
+
+    pub fn has_handler(&self, event: &str) -> bool {
+        self.handlers.contains_key(event)
+    }
+
+    pub fn get_attributes(&self) -> &HashMap<String, String> {
+        &self.attributes
     }
 }
 

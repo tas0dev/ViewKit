@@ -4,5 +4,7 @@
 pub mod libkagami;
 pub mod pipeline;
 pub mod components;
+pub mod app;
 
 pub use libkagami::*;
+pub use app::AppBuilder;
