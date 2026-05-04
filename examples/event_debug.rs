@@ -6,8 +6,6 @@ components_list! {
     button,
     card,
     text,
-    dock,
-    appicon,
 }
 
 #[cfg(unix)]

@@ -6,8 +6,6 @@ components_list! {
     button,
     card,
     text,
-    dock,
-    appicon,
 }
 
 #[cfg(unix)]
@@ -17,8 +15,8 @@ fn main() -> Result<(), String> {
 
     AppBuilder::new(WIDTH, HEIGHT)
         .children(|| {
-            let icons = (0..5).map(|_| appicon());
-            dock().children(icons)
+            let icons = (0..5).map(|_| card());
+            card().children(icons)
         })?
         .build()?
         .run()
