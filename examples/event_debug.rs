@@ -20,7 +20,7 @@ fn main() -> Result<(), String> {
     println!();
 
     AppBuilder::new(WIDTH, HEIGHT)
-        .with_ui_fn(|| {
+        .children(|| {
             card()
                 .label("Mouse & Keyboard Test\n\nMove mouse or press keys\nCheck console for logs")
         })?

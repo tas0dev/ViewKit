@@ -16,7 +16,7 @@ fn main() -> Result<(), String> {
     const HEIGHT: u32 = 540;
 
     AppBuilder::new(WIDTH, HEIGHT)
-        .with_ui_fn(|| {
+        .children(|| {
             let icons = (0..5).map(|_| appicon());
             dock().children(icons)
         })?

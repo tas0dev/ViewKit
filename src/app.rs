@@ -30,7 +30,7 @@ impl AppBuilder {
     }
 
     /// UIビルダー関数を設定（毎フレーム呼び出される）
-    pub fn with_ui_fn<F>(mut self, ui_fn: F) -> Result<Self, String>
+    pub fn children<F>(mut self, ui_fn: F) -> Result<Self, String>
     where
         F: Fn() -> VComponent + Send + Sync + 'static,
     {
@@ -59,14 +59,31 @@ impl App {
     }
 
     pub fn run(mut self) -> Result<(), String> {
+        // ポインタイベント数をカウント
+        let pointer_event_count = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let keyboard_event_count = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        
         // ポインタイベントを登録してログ出力
-        let pointer_callback = Arc::new(|x: f64, y: f64| {
-            println!("[POINTER] Mouse moved to: ({:.2}, {:.2})", x, y);
+        let pointer_count_clone = pointer_event_count.clone();
+        let pointer_callback = Arc::new(move |x: f64, y: f64| {
+            let count = pointer_count_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            println!("[POINTER] #{} Mouse moved to: ({:.2}, {:.2})", count, x, y);
         });
 
-        let keyboard_callback = Arc::new(|key: u32, state: wayland_client::WEnum<wayland_client::protocol::wl_keyboard::KeyState>| {
-            println!("[KEYBOARD] Key {} pressed/released: {:?}", key, state);
+        let keyboard_count_clone = keyboard_event_count.clone();
+        let keyboard_callback = Arc::new(move |key: u32, state: wayland_client::WEnum<wayland_client::protocol::wl_keyboard::KeyState>| {
+            let count = keyboard_count_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            println!("[KEYBOARD] #{} Key {} pressed/released: {:?}", count, key, state);
         });
+
+        // Dispatch pending events to process wl_seat capabilities before registering handlers
+        println!("[DEBUG] Dispatching pending events before registering input handlers...");
+        for i in 0..20 {
+            let _ = self.host.dispatch();
+            if i % 5 == 0 {
+                println!("[DEBUG] pre-dispatch #{}", i);
+            }
+        }
 
         register_pointer_and_keyboard(&mut self.host, Some(pointer_callback), Some(keyboard_callback))?;
         println!("Pointer and keyboard handlers registered");

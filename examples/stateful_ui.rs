@@ -2,13 +2,18 @@ use viewkit::components::VComponent;
 use viewkit::components_list;
 use viewkit::AppBuilder;
 use std::sync::Arc;
+use crate::State::{Detail, Home};
 
 components_list! {
     button,
     card,
     text,
-    dock,
-    appicon,
+}
+
+#[repr(i32)]
+enum State {
+    Home = 0i32,
+    Detail = 1i32,
 }
 
 #[cfg(unix)]
@@ -17,10 +22,10 @@ fn main() -> Result<(), String> {
     const HEIGHT: u32 = 540;
 
     // 画面状態を管理
-    let screen_state: Arc<viewkit::State<i32>> = Arc::new(viewkit::State::new(0));
+    let screen_state: Arc<viewkit::State<i32>> = Arc::new(viewkit::State::new(Home as i32));
 
     AppBuilder::new(WIDTH, HEIGHT)
-        .with_ui_fn({
+        .children({
             let state = screen_state.clone();
             move || {
                 let current_screen = state.get();
@@ -31,7 +36,7 @@ fn main() -> Result<(), String> {
                     card()
                         .label("Home Screen - Click to Detail")
                         .on_click(move || {
-                            state.set(1);
+                            state.set(Detail as i32);
                             println!("Navigated to detail screen");
                         })
                 } else {
@@ -40,7 +45,7 @@ fn main() -> Result<(), String> {
                     card()
                         .label("Detail Screen - Click to Home")
                         .on_click(move || {
-                            state.set(0);
+                            state.set(Home as i32);
                             println!("Navigated back to home");
                         })
                 }
