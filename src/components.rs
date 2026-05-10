@@ -16,6 +16,7 @@ pub struct VComponent {
 }
 
 // TODO: 画像対応
+#[allow(unused)]
 pub struct VContent {
     string: Option<String>,
     image: Option<DynamicImage>,
