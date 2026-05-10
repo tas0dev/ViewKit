@@ -2,7 +2,6 @@ use crate::components::VComponent;
 use crate::{host_HostDisplay, host_HostSurface, pipeline, register_pointer_and_keyboard};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 pub type UIBuilder = Box<dyn Fn() -> VComponent + Send + Sync>;
 
@@ -59,34 +58,7 @@ impl App {
     }
 
     pub fn run(mut self) -> Result<(), String> {
-        // ポインタイベント数をカウント
-        let pointer_event_count = Arc::new(std::sync::atomic::AtomicU32::new(0));
-        let keyboard_event_count = Arc::new(std::sync::atomic::AtomicU32::new(0));
-        
-        // ポインタイベントを登録してログ出力
-        let pointer_count_clone = pointer_event_count.clone();
-        let pointer_callback = Arc::new(move |x: f64, y: f64| {
-            let count = pointer_count_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            println!("[POINTER] #{} Mouse moved to: ({:.2}, {:.2})", count, x, y);
-        });
-
-        let keyboard_count_clone = keyboard_event_count.clone();
-        let keyboard_callback = Arc::new(move |key: u32, state: wayland_client::WEnum<wayland_client::protocol::wl_keyboard::KeyState>| {
-            let count = keyboard_count_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            println!("[KEYBOARD] #{} Key {} pressed/released: {:?}", count, key, state);
-        });
-
-        // Dispatch pending events to process wl_seat capabilities before registering handlers
-        println!("[DEBUG] Dispatching pending events before registering input handlers...");
-        for i in 0..20 {
-            let _ = self.host.dispatch();
-            if i % 5 == 0 {
-                println!("[DEBUG] pre-dispatch #{}", i);
-            }
-        }
-
-        register_pointer_and_keyboard(&mut self.host, Some(pointer_callback), Some(keyboard_callback))?;
-        println!("Pointer and keyboard handlers registered");
+        register_input_handlers(&mut self.host)?;
 
         let frame_done = Arc::new(AtomicBool::new(false));
         let mut frame_count = 0_u32;
@@ -107,7 +79,7 @@ impl App {
 
             while !frame_done.load(Ordering::SeqCst) {
                 self.host.dispatch()?;
-                std::thread::sleep(Duration::from_millis(8));
+                idle_wait();
             }
 
             frame_count += 1;
@@ -115,6 +87,16 @@ impl App {
                 println!("app: frame {}", frame_count);
             }
         }
+    }
+}
+
+fn register_input_handlers(host: &mut host_HostDisplay) -> Result<(), String> {
+    register_pointer_and_keyboard(host, None, None)
+}
+
+fn idle_wait() {
+    for _ in 0..50 {
+        core::hint::spin_loop();
     }
 }
 
