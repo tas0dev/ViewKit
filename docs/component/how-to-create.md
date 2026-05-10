@@ -37,6 +37,25 @@ You can specify the content that can be inserted as Content. For example, to spe
 <Content type="String" />
 ```
 
+### Example
+```html
+<style>
+    .card {
+        border-radius: 10px;
+        width: fit-content;
+        height: fit-content;
+        background-color: #fdfdfd;
+        opacity: 100%;
+        margin: 20px;
+        padding: 20px
+    }
+</style>
+
+<div class="card">
+    <Children />
+</div>
+```
+
 ### Size Placeholders
 In the CSS section, you can use special placeholders to dynamically set the size of your component. These are replaced by the properties assigned to the component at runtime:
 
