@@ -36,4 +36,40 @@ You can specify the content that can be inserted as Content. For example, to spe
 ```html
 <Content type="String" />
 ```
-To insert an image, simply change String to Image.
+
+### Size Placeholders
+In the CSS section, you can use special placeholders to dynamically set the size of your component. These are replaced by the properties assigned to the component at runtime:
+
+`CONTENT_W`: Replaced by the value specified in the component's `.width` property.
+`CONTENT_H`: Replaced by the value specified in the component's `.height` property.
+
+Example:
+
+```html
+<style>
+.component {
+    /* each is replaced at runtime. */
+    width: CONTENT_W;
+    height: CONTENT_H;
+}
+</style>
+<div class="component">
+    <Children />
+</div>
+```
+
+```rust
+fn main() -> Result<(), String> {
+    const WIDTH: u32 = 960;
+    const HEIGHT: u32 = 540;
+
+    AppBuilder::new(WIDTH, HEIGHT)
+        .children(|| {
+            // width() -> CONTENT_W
+            // height() -> CONTENT_H
+            card().width(WIDTH).height(HEIGHT)
+        })?
+        .build()?
+        .run()
+}
+```
