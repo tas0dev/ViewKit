@@ -8,7 +8,7 @@ file: "resources/components/*"
 Components are basically created using HTML and CSS.
 The location where they are created is not yet defined.
 
-Components must not have the `body`, `html`, or `head` attributes specified.
+Components must not have the `body`, `html`, or `head` tag specified.
 
 Doing so will cause them to malfunction.
 
