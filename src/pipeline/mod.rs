@@ -1,6 +1,7 @@
 pub mod display_list;
 pub mod dom;
 pub mod framebuffer;
+pub mod image;
 pub mod layout;
 pub mod parser;
 pub mod rasterizer;

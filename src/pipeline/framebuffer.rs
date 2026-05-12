@@ -71,6 +71,39 @@ impl Framebuffer {
         }
     }
 
+    pub fn blit_image_pixels(
+        &mut self,
+        src_pixels: &[u32],
+        src_width: u32,
+        src_height: u32,
+        x: i32,
+        y: i32,
+        opacity: f32,
+    ) {
+        let opacity = opacity.clamp(0.0, 1.0);
+        
+        for src_y in 0..src_height as i32 {
+            for src_x in 0..src_width as i32 {
+                let dst_x = x + src_x;
+                let dst_y = y + src_y;
+                
+                if dst_x < 0 || dst_y < 0 || dst_x >= self.width as i32 || dst_y >= self.height as i32 {
+                    continue;
+                }
+                
+                let src_idx = (src_y * src_width as i32 + src_x) as usize;
+                let dst_idx = (dst_y * self.width as i32 + dst_x) as usize;
+                
+                if src_idx >= src_pixels.len() || dst_idx >= self.pixels.len() {
+                    continue;
+                }
+                
+                let src = src_pixels[src_idx];
+                self.pixels[dst_idx] = blend_argb_over(self.pixels[dst_idx], src, opacity);
+            }
+        }
+    }
+
     fn pixel_index(&self, x: i32, y: i32) -> Option<usize> {
         if x < 0 || y < 0 {
             return None;

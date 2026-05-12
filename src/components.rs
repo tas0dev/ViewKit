@@ -1,4 +1,3 @@
-use image::DynamicImage;
 use std::collections::HashMap;
 
 // イベントハンドラーの型
@@ -19,7 +18,7 @@ pub struct VComponent {
 #[allow(unused)]
 pub struct VContent {
     string: Option<String>,
-    image: Option<DynamicImage>,
+    image_path: Option<String>,
 }
 
 impl VComponent {
@@ -55,6 +54,11 @@ impl VComponent {
 
     pub fn text(mut self, content: impl Into<String>) -> Self {
         self.content.push(VContent::string(content.into()));
+        self
+    }
+
+    pub fn image(mut self, path: impl Into<String>) -> Self {
+        self.content.push(VContent::image(path.into()));
         self
     }
 
@@ -143,15 +147,15 @@ impl VComponent {
 impl VContent {
     pub fn string(s: String) -> Self {
         Self {
-            string: Option::from(s),
-            image: None,
+            string: Some(s),
+            image_path: None,
         }
     }
 
-    pub fn image(img: DynamicImage) -> Self {
+    pub fn image(path: String) -> Self {
         Self {
             string: None,
-            image: Option::from(img),
+            image_path: Some(path),
         }
     }
 }
