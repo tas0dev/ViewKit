@@ -95,6 +95,7 @@ fn blend_argb_over(dst: u32, src: u32, opacity: f32) -> u32 {
         return dst;
     }
     
+    let da = ((dst >> 24) & 0xff) as f32 / 255.0;
     let dr = ((dst >> 16) & 0xff) as f32;
     let dg = ((dst >> 8) & 0xff) as f32;
     let db = (dst & 0xff) as f32;
@@ -106,6 +107,7 @@ fn blend_argb_over(dst: u32, src: u32, opacity: f32) -> u32 {
     let out_r = (sr * a + dr * (1.0 - a)).round().clamp(0.0, 255.0) as u32;
     let out_g = (sg * a + dg * (1.0 - a)).round().clamp(0.0, 255.0) as u32;
     let out_b = (sb * a + db * (1.0 - a)).round().clamp(0.0, 255.0) as u32;
-    
-    0xff00_0000 | (out_r << 16) | (out_g << 8) | out_b
+    let out_a = (a + da * (1.0 - a)).round().clamp(0.0, 1.0) * 255.0;
+
+    (((out_a.round() as u32) & 0xff) << 24) | (out_r << 16) | (out_g << 8) | out_b
 }
