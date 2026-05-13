@@ -183,9 +183,8 @@ impl Framebuffer {
             let py = dst_y + dy;
             for dx in 0..dst_width {
                 let px = dst_x + dx;
-                let lx = (dx) as f32;
-                let ly = (dy) as f32;
-                if clip_radius > 0 && !is_inside_rounded_rect_at(lx + 0.5, ly + 0.5, dst_width as f32, dst_height as f32, clip_radius_f) {
+                let coverage = rounded_rect_coverage(dx as f32, dy as f32, dst_width as f32, dst_height as f32, clip_radius_f);
+                if coverage <= 0.0 {
                     continue;
                 }
 
@@ -203,7 +202,7 @@ impl Framebuffer {
                 if src_idx >= src_pixels.len() {
                     continue;
                 }
-                self.pixels[dst_idx] = blend_argb_over(self.pixels[dst_idx], src_pixels[src_idx], opacity);
+                self.pixels[dst_idx] = blend_argb_over(self.pixels[dst_idx], src_pixels[src_idx], opacity * coverage);
             }
         }
     }

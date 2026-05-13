@@ -33,7 +33,7 @@ pub fn rasterize(display_list: &DisplayList, width: u32, height: u32) -> Framebu
                 fit_cover,
             } => {
                 if let Some((pixels, w, h)) = image::load_image_from_path(src) {
-                    if *fit_cover {
+                    if *fit_cover || *radius > 0 {
                         fb.blit_image_pixels_cover_rounded(
                             &pixels,
                             w,
