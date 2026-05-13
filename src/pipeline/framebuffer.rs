@@ -10,7 +10,7 @@ impl Framebuffer {
         Self {
             width,
             height,
-            pixels: vec![0xFF000000; (width * height) as usize],
+            pixels: vec![0x00000000; (width * height) as usize],
         }
     }
 

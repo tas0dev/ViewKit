@@ -4,7 +4,7 @@ use super::image;
 
 pub fn rasterize(display_list: &DisplayList, width: u32, height: u32) -> Framebuffer {
     let mut fb = Framebuffer::new(width, height);
-    fb.clear(0xFF111111);
+    fb.clear(0x00000000);
 
     for item in &display_list.items {
         match item {
