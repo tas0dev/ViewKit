@@ -25,9 +25,39 @@ pub fn rasterize(display_list: &DisplayList, width: u32, height: u32) -> Framebu
             } => {
                 rasterize_text(&mut fb, *x, *y, *color, *opacity, text);
             }
-            DisplayCommand::DrawImage { rect, opacity, src, radius: _ } => {
+            DisplayCommand::DrawImage {
+                rect,
+                opacity,
+                src,
+                radius,
+                fit_cover,
+            } => {
                 if let Some((pixels, w, h)) = image::load_image_from_path(src) {
-                    fb.blit_image_pixels_fit(&pixels, w, h, rect.x, rect.y, rect.width, rect.height, *opacity, 4);
+                    if *fit_cover {
+                        fb.blit_image_pixels_cover_rounded(
+                            &pixels,
+                            w,
+                            h,
+                            rect.x,
+                            rect.y,
+                            rect.width,
+                            rect.height,
+                            *radius,
+                            *opacity,
+                        );
+                    } else {
+                        fb.blit_image_pixels_fit(
+                            &pixels,
+                            w,
+                            h,
+                            rect.x,
+                            rect.y,
+                            rect.width,
+                            rect.height,
+                            *opacity,
+                            0,
+                        );
+                    }
                 } else {
                     // Debug fallback: show missing decode/load as magenta.
                     fb.fill_rect(rect.x, rect.y, rect.width, rect.height, 0xFFFF00FF, *opacity);

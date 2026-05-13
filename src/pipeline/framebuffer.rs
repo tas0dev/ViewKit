@@ -155,6 +155,59 @@ impl Framebuffer {
         }
     }
 
+    pub fn blit_image_pixels_cover_rounded(
+        &mut self,
+        src_pixels: &[u32],
+        src_width: u32,
+        src_height: u32,
+        dst_x: i32,
+        dst_y: i32,
+        dst_width: i32,
+        dst_height: i32,
+        radius: i32,
+        opacity: f32,
+    ) {
+        if src_width == 0 || src_height == 0 || dst_width <= 0 || dst_height <= 0 {
+            return;
+        }
+
+        let scale = (dst_width as f32 / src_width as f32).max(dst_height as f32 / src_height as f32);
+        let out_w = (src_width as f32 * scale).ceil().max(1.0) as i32;
+        let out_h = (src_height as f32 * scale).ceil().max(1.0) as i32;
+        let start_x = dst_x + (dst_width - out_w) / 2;
+        let start_y = dst_y + (dst_height - out_h) / 2;
+        let clip_radius = radius.max(0).min(dst_width / 2).min(dst_height / 2);
+        let clip_radius_f = clip_radius as f32;
+
+        for dy in 0..dst_height {
+            let py = dst_y + dy;
+            for dx in 0..dst_width {
+                let px = dst_x + dx;
+                let lx = (dx) as f32;
+                let ly = (dy) as f32;
+                if clip_radius > 0 && !is_inside_rounded_rect_at(lx + 0.5, ly + 0.5, dst_width as f32, dst_height as f32, clip_radius_f) {
+                    continue;
+                }
+
+                let src_x = (((px - start_x) as f32 + 0.5) / scale).floor() as i32;
+                let src_y = (((py - start_y) as f32 + 0.5) / scale).floor() as i32;
+                if src_x < 0 || src_y < 0 || src_x >= src_width as i32 || src_y >= src_height as i32 {
+                    continue;
+                }
+
+                let src_idx = (src_y as u32 * src_width + src_x as u32) as usize;
+                let dst_idx = match self.pixel_index(px, py) {
+                    Some(idx) => idx,
+                    None => continue,
+                };
+                if src_idx >= src_pixels.len() {
+                    continue;
+                }
+                self.pixels[dst_idx] = blend_argb_over(self.pixels[dst_idx], src_pixels[src_idx], opacity);
+            }
+        }
+    }
+
     fn pixel_index(&self, x: i32, y: i32) -> Option<usize> {
         if x < 0 || y < 0 {
             return None;

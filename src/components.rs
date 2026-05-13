@@ -19,6 +19,14 @@ pub struct VComponent {
 pub struct VContent {
     string: Option<String>,
     image_path: Option<String>,
+    image_fit: Option<ImageFit>,
+    image_clip_radius: Option<i32>,
+}
+
+#[derive(Clone, Copy)]
+enum ImageFit {
+    Contain,
+    Cover,
 }
 
 impl VComponent {
@@ -107,13 +115,7 @@ impl VComponent {
         // This keeps the HTML parser/pipeline generic, while allowing VComponent builder APIs.
         for item in &self.content {
             if let Some(path) = &item.image_path {
-                // Note: ViewKit's CSS selector support is intentionally minimal; avoid relying
-                // on descendant selectors like `.appicon img`.
-                let img = format!(
-                    "<img class=\"vk-img\" src=\"{}\" />",
-                    escape_attr_value(path)
-                );
-                html = replace_first_content_image(&html, &img);
+                html = replace_first_content_image(&html, path, item.image_fit, item.image_clip_radius);
             } else if let Some(text) = &item.string {
                 let escaped = escape_text(text);
                 html = replace_first_content_text(&html, &escaped);
@@ -166,6 +168,8 @@ impl VContent {
         Self {
             string: Some(s),
             image_path: None,
+            image_fit: None,
+            image_clip_radius: None,
         }
     }
 
@@ -173,6 +177,8 @@ impl VContent {
         Self {
             string: None,
             image_path: Some(path),
+            image_fit: None,
+            image_clip_radius: None,
         }
     }
 }
@@ -230,26 +236,64 @@ fn base_css() -> &'static str {
     ".vk-img{width:100%;height:100%;}"
 }
 
-fn replace_first_content_image(input: &str, replacement: &str) -> String {
-    for pat in [
-        "<Content type=\"Image\" />",
-        "<Content type=\"Image\"/>",
-        "<Content type='Image' />",
-        "<Content type='Image'/>",
-        "<Content type=\"image\" />",
-        "<Content type=\"image\"/>",
-        "<Content type='image' />",
-        "<Content type='image'/>",
-    ] {
-        if let Some(pos) = input.find(pat) {
-            let mut out = String::with_capacity(input.len() - pat.len() + replacement.len());
-            out.push_str(&input[..pos]);
-            out.push_str(replacement);
-            out.push_str(&input[pos + pat.len()..]);
+fn replace_first_content_image(
+    input: &str,
+    path: &str,
+    fit: Option<ImageFit>,
+    clip_radius: Option<i32>,
+) -> String {
+    let mut search_from = 0;
+    while let Some(rel_start) = input[search_from..].find("<Content") {
+        let start = search_from + rel_start;
+        let Some(rel_end) = input[start..].find('>') else {
+            break;
+        };
+        let end = start + rel_end + 1;
+        let tag = &input[start..end];
+        let attrs = extract_content_tag_attrs(tag);
+        let tag_type = attrs.get("type").map(|v| v.to_ascii_lowercase());
+        if tag_type.as_deref() == Some("image") {
+            let mut img = String::from("<img class=\"vk-img\" src=\"");
+            img.push_str(&escape_attr_value(path));
+            let wants_cover = matches!(fit, Some(ImageFit::Cover))
+                || matches!(attrs.get("fit").map(String::as_str), Some("cover"));
+            if wants_cover {
+                img.push_str("\" data-vk-fit=\"cover");
+            } else {
+                img.push('"');
+            }
+
+            if let Some(radius) = clip_radius.or_else(|| attrs.get("clip-radius").and_then(|v| v.parse::<i32>().ok())) {
+                img.push_str("\" data-vk-clip-radius=\"");
+                img.push_str(&radius.to_string());
+            }
+            img.push_str("\" />");
+
+            let mut out = String::with_capacity(input.len() - (end - start) + img.len());
+            out.push_str(&input[..start]);
+            out.push_str(&img);
+            out.push_str(&input[end..]);
             return out;
         }
+        search_from = end;
     }
     input.to_string()
+}
+
+fn extract_content_tag_attrs(tag: &str) -> std::collections::BTreeMap<String, String> {
+    let mut attrs = std::collections::BTreeMap::new();
+    let body = tag.strip_prefix('<').and_then(|s| s.strip_suffix('>')).unwrap_or(tag).trim();
+    let mut parts = body.split_whitespace();
+    let _ = parts.next();
+    for part in parts {
+        if let Some((key, value)) = part.split_once('=') {
+            attrs.insert(
+                key.trim().to_ascii_lowercase(),
+                value.trim_matches('/').trim_matches('"').trim_matches('\'').to_string(),
+            );
+        }
+    }
+    attrs
 }
 
 fn replace_first_content_text(input: &str, replacement: &str) -> String {

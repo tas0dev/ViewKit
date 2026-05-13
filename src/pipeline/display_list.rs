@@ -25,6 +25,7 @@ pub enum DisplayCommand {
         opacity: f32,
         src: String,
         radius: i32,
+        fit_cover: bool,
     },
 }
 
@@ -58,11 +59,17 @@ fn build_for_node(
             if tag_name == "img" {
                 if let Some(src) = attributes.get("src") {
                     let radius = parse_border_radius_px(node.styles.get("border-radius"));
+                    let fit_cover = attributes.get("data-vk-fit").map(|v| v == "cover").unwrap_or(false);
+                    let clip_radius = attributes
+                        .get("data-vk-clip-radius")
+                        .and_then(|v| v.parse::<i32>().ok())
+                        .unwrap_or(radius);
                     out.push(DisplayCommand::DrawImage {
                         rect: node.rect,
                         opacity: effective_opacity,
                         src: src.clone(),
-                        radius,
+                        radius: clip_radius,
+                        fit_cover,
                     });
                 }
             }
