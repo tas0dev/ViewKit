@@ -104,6 +104,57 @@ impl Framebuffer {
         }
     }
 
+    pub fn blit_image_pixels_fit(
+        &mut self,
+        src_pixels: &[u32],
+        src_width: u32,
+        src_height: u32,
+        dst_x: i32,
+        dst_y: i32,
+        dst_width: i32,
+        dst_height: i32,
+        opacity: f32,
+        padding: i32,
+    ) {
+        if src_width == 0 || src_height == 0 || dst_width <= 0 || dst_height <= 0 {
+            return;
+        }
+
+        let avail_w = (dst_width - padding * 2).max(1) as f32;
+        let avail_h = (dst_height - padding * 2).max(1) as f32;
+        let scale = (avail_w / src_width as f32)
+            .min(avail_h / src_height as f32)
+            .min(1.0);
+        if scale <= 0.0 {
+            return;
+        }
+
+        let out_w = (src_width as f32 * scale).round().max(1.0) as i32;
+        let out_h = (src_height as f32 * scale).round().max(1.0) as i32;
+        let start_x = dst_x + (dst_width - out_w) / 2;
+        let start_y = dst_y + (dst_height - out_h) / 2;
+
+        for oy in 0..out_h {
+            let sy = ((oy as f32) / scale).floor() as u32;
+            let sy = sy.min(src_height - 1);
+            for ox in 0..out_w {
+                let sx = ((ox as f32) / scale).floor() as u32;
+                let sx = sx.min(src_width - 1);
+                let dx = start_x + ox;
+                let dy = start_y + oy;
+                if dx < 0 || dy < 0 || dx >= self.width as i32 || dy >= self.height as i32 {
+                    continue;
+                }
+                let src_idx = (sy * src_width + sx) as usize;
+                let dst_idx = (dy as u32 * self.width + dx as u32) as usize;
+                if src_idx >= src_pixels.len() || dst_idx >= self.pixels.len() {
+                    continue;
+                }
+                self.pixels[dst_idx] = blend_argb_over(self.pixels[dst_idx], src_pixels[src_idx], opacity);
+            }
+        }
+    }
+
     fn pixel_index(&self, x: i32, y: i32) -> Option<usize> {
         if x < 0 || y < 0 {
             return None;

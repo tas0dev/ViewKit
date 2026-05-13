@@ -27,8 +27,7 @@ pub fn rasterize(display_list: &DisplayList, width: u32, height: u32) -> Framebu
             }
             DisplayCommand::DrawImage { rect, opacity, src, radius: _ } => {
                 if let Some((pixels, w, h)) = image::load_image_from_path(src) {
-                    // No scaling (yet): icons are expected to be authored at the target size.
-                    fb.blit_image_pixels(&pixels, w, h, rect.x, rect.y, *opacity);
+                    fb.blit_image_pixels_fit(&pixels, w, h, rect.x, rect.y, rect.width, rect.height, *opacity, 4);
                 } else {
                     // Debug fallback: show missing decode/load as magenta.
                     fb.fill_rect(rect.x, rect.y, rect.width, rect.height, 0xFFFF00FF, *opacity);
