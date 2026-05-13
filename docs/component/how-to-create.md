@@ -76,6 +76,8 @@ In the CSS section, you can use special placeholders to dynamically set the size
 `CONTENT_W`: Replaced by the value specified in the component's `.width` property.
 `CONTENT_H`: Replaced by the value specified in the component's `.height` property.
 
+In ViewKit, you can set these with `.width()` and `.height()` on `VComponent`.
+
 Example:
 
 ```html
