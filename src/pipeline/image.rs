@@ -1,5 +1,7 @@
 use image::{DynamicImage, ImageReader};
 use std::io::Cursor;
+#[cfg(all(target_os = "linux", target_env = "musl"))]
+use swiftlib::fs;
 
 /// 画像ファイルを読み込み ARGB32 ピクセル配列に変換
 pub fn load_image_from_bytes(data: &[u8]) -> Option<(Vec<u32>, u32, u32)> {
@@ -8,6 +10,21 @@ pub fn load_image_from_bytes(data: &[u8]) -> Option<(Vec<u32>, u32, u32)> {
     let reader = reader.with_guessed_format().ok()?;
     let img = reader.decode().ok()?;
     image_to_pixels(&img)
+}
+
+/// ファイルパスから画像を読み込み ARGB32 ピクセル配列に変換
+pub fn load_image_from_path(path: &str) -> Option<(Vec<u32>, u32, u32)> {
+    #[cfg(all(target_os = "linux", target_env = "musl"))]
+    {
+        let data = fs::read_file_via_fs(path, 512 * 1024).ok()??;
+        return load_image_from_bytes(&data);
+    }
+
+    #[cfg(not(all(target_os = "linux", target_env = "musl")))]
+    {
+        let data = std::fs::read(path).ok()?;
+        return load_image_from_bytes(&data);
+    }
 }
 
 /// DynamicImage を ARGB32 ピクセル配列に変換

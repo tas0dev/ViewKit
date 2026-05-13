@@ -20,6 +20,12 @@ pub enum DisplayCommand {
         opacity: f32,
         text: String,
     },
+    DrawImage {
+        rect: Rect,
+        opacity: f32,
+        src: String,
+        radius: i32,
+    },
 }
 
 pub fn build(layout: &LayoutTree) -> DisplayList {
@@ -38,7 +44,7 @@ fn build_for_node(
     let effective_opacity = (inherited_opacity * self_opacity).clamp(0.0, 1.0);
 
     match &node.kind {
-        LayoutNodeKind::Element { .. } => {
+        LayoutNodeKind::Element { tag_name, attributes } => {
             if let Some(color) = background_color_from_styles(&node.styles) {
                 let radius = parse_border_radius_px(node.styles.get("border-radius"));
                 out.push(DisplayCommand::FillRect {
@@ -47,6 +53,18 @@ fn build_for_node(
                     radius,
                     opacity: effective_opacity,
                 });
+            }
+
+            if tag_name == "img" {
+                if let Some(src) = attributes.get("src") {
+                    let radius = parse_border_radius_px(node.styles.get("border-radius"));
+                    out.push(DisplayCommand::DrawImage {
+                        rect: node.rect,
+                        opacity: effective_opacity,
+                        src: src.clone(),
+                        radius,
+                    });
+                }
             }
         }
         LayoutNodeKind::Text { content } => {

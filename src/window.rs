@@ -1,10 +1,4 @@
 //! mochiOS app-side window helper.
-//!
-//! Apps should not have to talk to Kagami directly. This module wraps:
-//! - finding Kagami
-//! - creating a window
-//! - setting up a shared surface
-//! - presenting frames
 
 #![cfg(all(target_os = "linux", target_env = "musl"))]
 
@@ -30,6 +24,7 @@ pub struct Window {
     width: u16,
     height: u16,
     surface: SharedSurface,
+    #[allow(dead_code)]
     phys_pages: Vec<u64>,
 }
 
@@ -82,14 +77,37 @@ impl Window {
             return Err("pixel buffer too small");
         }
         blit_shared_surface(&self.surface, pixels);
-        present_shared(self.kagami_tid, self.window_id)
+        // Kagami 側の描画更新タイミング次第で 1 回だと反映されないことがあるので、
+        // attach 直後や起動直後は複数回 present する。
+        for _ in 0..3 {
+            present_shared(self.kagami_tid, self.window_id)?;
+            yield_now();
+        }
+        Ok(())
     }
 }
 
 fn find_kagami_tid() -> Option<u64> {
+    // Binder などから `--kagami-tid=<tid>` が渡されるので最優先で使う。
+    if let Some(tid) = parse_kagami_tid_from_args() {
+        return Some(tid);
+    }
+
     // 起動経路や bundle 名でプロセス名が揺れても動くように複数候補を試す。
-    for name in ["Kagami.app", "Kagami", "kagami"] {
+    for name in ["/applications/Kagami.app/entry.elf", "Kagami.app", "entry.elf"] {
         if let Some(tid) = find_process_by_name(name) {
+            return Some(tid);
+        }
+    }
+    None
+}
+
+fn parse_kagami_tid_from_args() -> Option<u64> {
+    for arg in std::env::args().skip(1) {
+        if let Some(rest) = arg.strip_prefix("--kagami-tid=")
+            && let Ok(tid) = rest.parse::<u64>()
+            && tid != 0
+        {
             return Some(tid);
         }
     }

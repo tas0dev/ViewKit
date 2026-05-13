@@ -1,5 +1,6 @@
 use super::dom::DomNodeKind;
 use super::style::{StyleMap, StyledNode, StyledTree};
+use std::collections::BTreeMap;
 use ui_layout::{
     AlignItems, BoxSizing, Display, FlexDirection, Fragment, ItemFragment, ItemStyle,
     JustifyContent, LayoutBoxes, LayoutEngine, LayoutNode as UiLayoutNode, Length, SizeStyle,
@@ -29,7 +30,7 @@ pub struct LayoutNode {
 
 #[derive(Debug, Clone)]
 pub enum LayoutNodeKind {
-    Element { tag_name: String },
+    Element { tag_name: String, attributes: BTreeMap<String, String> },
     Text { content: String },
 }
 
@@ -69,6 +70,7 @@ fn build_ui_tree(node: &StyledNode, is_root: bool) -> (UiLayoutNode, MetaNode) {
             let meta = MetaNode {
                 kind: LayoutNodeKind::Element {
                     tag_name: el.tag_name.clone(),
+                    attributes: el.attributes.clone(),
                 },
                 styles: node.styles.clone(),
                 children: meta_children,

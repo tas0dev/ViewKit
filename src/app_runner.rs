@@ -1,11 +1,5 @@
 //! App-side runner for mochiOS apps.
 //!
-//! Goal: apps should not need to know about Kagami IPC. They provide:
-//! - a model (state)
-//! - an update function (event -> state)
-//! - a view function (state -> VComponent)
-//! and AppRunner handles: window, input polling, rendering and present.
-
 #![cfg(all(target_os = "linux", target_env = "musl"))]
 
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -111,7 +105,6 @@ impl AppRunner {
                 }
             }
 
-            // Render only when something changed.
             if self.dirty.swap(false, Ordering::SeqCst) {
                 let ui = view(&model);
                 let pixels = render_component_to_pixmap(&ui, width as u32, height as u32);
