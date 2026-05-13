@@ -23,6 +23,8 @@ Currently, there are two special tags (used only in ViewKit) used when creating 
 - `<Children />`
 - `<Content />`
 
+Use `<Children />` to nest other components, and `<Content />` to insert raw data like text or images.
+
 We will explain each in detail.
 
 ### Children tag
@@ -36,6 +38,18 @@ You can specify the content that can be inserted as Content. For example, to spe
 ```html
 <Content type="String" />
 ```
+
+To insert an image, write:
+```html
+<Content type="Image" />
+```
+
+You can also add attributes to the Content tag to control how the image is rendered. For example, to make an image fill the component area while keeping its aspect ratio, use:
+```html
+<Content type="Image" fit="cover" clip-radius="15" />
+```
+
+`fit="cover"` makes the image crop to the component's bounds, and `clip-radius` applies rounded corners to the clipped image.
 
 ### Example
 ```html
